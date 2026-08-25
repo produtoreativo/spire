@@ -1,0 +1,58 @@
+_format_version: "3.0"
+_transform: true
+
+# Kong declarative config — DB-less mode (local dev)
+#
+# Neste experimento o Kong funciona como proxy frontal para a API do Backstage
+# e valida tokens JWT emitidos pelo Keycloak.
+# Em produção (OCI) será configurado via Helm values com banco PostgreSQL.
+
+services:
+  - name: backstage-api
+    url: http://backstage:7007
+    routes:
+      - name: backstage-api-route
+        hosts:
+          - api.spire.localhost
+        paths:
+          - /backstage
+        strip_path: true
+    plugins:
+      - name: jwt
+        config:
+          # Keycloak JWKS endpoint — Kong valida tokens automaticamente
+          # Em produção: substituir pelo JWKS real do Keycloak
+          key_claim_name: kid
+          claims_to_verify:
+            - exp
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+
+  - name: spire-specs-api
+    # Endpoint futuro: API de validação de specs do Spire
+    url: http://backstage:7007/api/spire
+    routes:
+      - name: spire-specs-route
+        hosts:
+          - api.spire.localhost
+        paths:
+          - /specs
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+      - name: request-size-limiting
+        config:
+          # OBCs e specs podem ser grandes (ex: OpenAPI com muitas operações)
+          allowed_payload_size: 10
+
+plugins:
+  - name: correlation-id
+    config:
+      header_name: X-Spire-Request-ID
+      generator: uuid#counter
+      echo_downstream: true

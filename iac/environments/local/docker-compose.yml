@@ -1,0 +1,230 @@
+services:
+
+  # ── Traefik — reverse proxy / ingress ────────────────────────────────────────
+  traefik:
+    image: traefik:v3.1
+    container_name: spire-traefik
+    restart: unless-stopped
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --log.level=INFO
+    ports:
+      - "80:80"
+      - "8080:8080"   # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - spire
+
+  # ── PostgreSQL — shared DB ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: spire-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spire}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_MULTIPLE_DATABASES: spire,keycloak,kong
+    volumes:
+      - ./postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spire}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spire
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: spire-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - spire
+
+  # ── Keycloak — IdP OIDC ───────────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: spire-keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-spire}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      KC_HOSTNAME: keycloak.${BASE_DOMAIN:-spire.localhost}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: "8080"
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?required}
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+    volumes:
+      - ./keycloak/realm-spire.json:/opt/keycloak/data/import/realm-spire.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - spire
+
+  # ── MinIO — object storage (substituto local do OCI Object Storage) ───────────
+  minio:
+    image: minio/minio:latest
+    container_name: spire-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-spire}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+    volumes:
+      - minio_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio-console.rule=Host(`minio.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.minio-console.entrypoints=web"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minio-api.rule=Host(`artifacts.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.minio-api.entrypoints=web"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spire
+
+  # ── MinIO init — cria bucket inicial ─────────────────────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: spire-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-spire}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+      MINIO_BUCKET: ${MINIO_BUCKET:-spire-artifacts}
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+        mc mb --ignore-existing local/$$MINIO_BUCKET &&
+        echo 'Bucket ready.'
+      "
+    networks:
+      - spire
+
+  # ── Kong — API Gateway (DB-less mode para local) ──────────────────────────────
+  kong:
+    image: kong:3.7-ubuntu
+    container_name: spire-kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PLUGINS: bundled
+    volumes:
+      - ./kong/kong.yml:/etc/kong/kong.yml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kong-proxy.rule=Host(`api.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.kong-proxy.entrypoints=web"
+      - "traefik.http.services.kong-proxy.loadbalancer.server.port=8000"
+      - "traefik.http.routers.kong-admin.rule=Host(`kong-admin.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.kong-admin.entrypoints=web"
+      - "traefik.http.services.kong-admin.loadbalancer.server.port=8001"
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spire
+
+  # ── Backstage ─────────────────────────────────────────────────────────────────
+  backstage:
+    image: node:20-alpine
+    container_name: spire-backstage
+    restart: unless-stopped
+    working_dir: /app
+    # Em EXP-002 usa a imagem de desenvolvimento do Backstage.
+    # Substituir por imagem buildada quando o plugin Spire existir.
+    command: >
+      sh -c "
+        npx --yes @backstage/create-app@latest --skip-install spire-app 2>/dev/null || true;
+        echo 'Backstage placeholder — substituir por imagem buildada em EXP-003'
+      "
+    environment:
+      BASE_URL: ${BACKSTAGE_BASE_URL:-http://backstage.spire.localhost}
+      AUTH_BACKEND_SECRET: ${AUTH_BACKEND_SECRET:?required}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-spire}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-spire}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-backstage}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backstage.rule=Host(`backstage.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.backstage.entrypoints=web"
+      - "traefik.http.services.backstage.loadbalancer.server.port=7007"
+    networks:
+      - spire
+
+  # ── OTEL Collector ────────────────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: spire-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yml"]
+    volumes:
+      - ./otel/config.yml:/etc/otel/config.yml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    networks:
+      - spire
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  spire:
+    driver: bridge

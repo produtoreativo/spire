@@ -341,15 +341,17 @@ Toda extensão usa APIs públicas e estáveis do Backstage:
 - **Kong OSS** (não Kong Enterprise): FOSS, sem custos de licença
 - **Keycloak** (não Auth0/Okta): FOSS, auto-hospedado, OIDC compliant
 
-## Decisões Abertas (requerem validação)
+## Decisões Fechadas (2026-08-25)
 
-| Decisão | Opção A | Opção B | Blocker |
-|---|---|---|---|
-| Armazenamento OBC | MinIO (S3-compat) | OCI Object Storage nativo | Portabilidade vs. simplicidade |
-| Ingress | nginx-ingress | Traefik (já incluso no K3s) | Traefik evita um componente extra |
-| DNS | OCI DNS | Cloudflare DNS (free) | OCI DNS é grátis mas limitado |
-| Backstage DB | PostgreSQL dedicado | SQLite (só dev) | SQLite não serve para produção |
-| Spec storage | MinIO bucket | Git (repo) | Git é auditável mas pesado para binários |
+| Decisão | Escolha | Justificativa |
+|---|---|---|
+| Topologia K3s | **Single-node** | Free Tier de referência; HA não é requisito inicial |
+| Armazenamento OBC (OCI) | **OCI Object Storage nativo** | 20 GB grátis no Always Free; elimina MinIO na OCI |
+| Armazenamento OBC (local) | **MinIO** | Substituto S3-compat para ambiente local/docker-compose |
+| Ingress | **Traefik** | Já incluso no K3s — zero overhead operacional |
+| DNS | **A definir pelo operador** | Operador criará domínio; usar cert-manager + Let's Encrypt |
+| Backstage DB | **PostgreSQL** | SQLite não é adequado para produção |
+| Spec storage | **OCI Object Storage** (OCI) / **MinIO** (local) | Consistência S3-compat entre ambientes |
 
 ---
 
@@ -392,13 +394,11 @@ Toda extensão usa APIs públicas e estáveis do Backstage:
 
 # Recommendation
 
-- [x] **Executar outro experimento Upstream** — Validar o sizing do stack em ambiente local
-  (docker-compose) antes de subir para OCI. Confirmar que todos os containers têm imagem ARM64.
-- [ ] Mover para Downstream — ainda não; há decisões em aberto (ver tabela acima)
+- [x] **Executar EXP-002** — Validar o stack localmente com docker-compose antes de OCI.
+  Decisões fechadas em 2026-08-25. Pronto para iniciar EXP-002.
 
-**Próximo passo concreto:** criar `environments/local/docker-compose.yml` com o stack completo
-para validar o sizing e a integração Backstage + Keycloak + Kong em ambiente controlado.
-Após validação local, as decisões abertas estarão respondidas e o trabalho move para Downstream.
+**Próximo passo concreto:** EXP-002 — docker-compose com Backstage + Keycloak + Kong +
+Traefik + PostgreSQL + Redis + MinIO. Validar integração e sizing localmente.
 
 ---
 
@@ -413,8 +413,9 @@ Após validação local, as decisões abertas estarão respondidas e o trabalho 
 | Imagens ARM64 disponíveis? | ✅ Respondida | Todos os componentes têm ARM64 |
 | K3s vs OKE? | ✅ Respondida | K3s — OKE cobra por nós |
 | Validadores por tipo de spec? | ✅ Respondida | Ver tabela Validadores |
-| MinIO vs OCI Object Storage? | ⚠ Parcial | Decisão aberta — portabilidade vs. simplicidade |
-| Traefik vs nginx-ingress? | ⚠ Parcial | Traefik já vem no K3s — validar suporte a cert-manager |
+| MinIO vs OCI Object Storage? | ✅ Respondida | OCI: Object Storage nativo (grátis). Local: MinIO |
+| Traefik vs nginx-ingress? | ✅ Respondida | Traefik — built-in K3s, zero overhead |
+| Single-node vs 2 nós? | ✅ Respondida | Single-node para referência |
 
 ---
 

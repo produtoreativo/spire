@@ -1,0 +1,16 @@
+http:
+  middlewares:
+    # Adiciona headers de segurança básicos em todas as respostas
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "same-origin"
+
+    # Redireciona www → apex (útil futuramente com domínio real)
+    strip-www:
+      redirectRegex:
+        regex: "^http://www\\.(.*)"
+        replacement: "http://${1}"
+        permanent: true

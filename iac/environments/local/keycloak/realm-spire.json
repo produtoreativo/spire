@@ -1,0 +1,68 @@
+{
+  "realm": "spire",
+  "displayName": "Spire Platform",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "sslRequired": "none",
+  "accessTokenLifespan": 3600,
+  "clients": [
+    {
+      "clientId": "backstage",
+      "name": "Backstage IDP",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "backstage-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://backstage.spire.localhost/*",
+        "http://localhost:7007/*"
+      ],
+      "webOrigins": [
+        "http://backstage.spire.localhost",
+        "http://localhost:7007"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "kong",
+      "name": "Kong API Gateway",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "kong-dev-secret",
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect"
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "spire-admin", "description": "Spire platform administrator" },
+      { "name": "spire-publisher", "description": "Can publish and validate OBCs" },
+      { "name": "spire-reader", "description": "Read-only access to catalog" }
+    ]
+  },
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@spire.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["spire-admin"]
+    },
+    {
+      "username": "publisher",
+      "email": "publisher@spire.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "publisher", "temporary": false }],
+      "realmRoles": ["spire-publisher"]
+    }
+  ]
+}
