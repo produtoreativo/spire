@@ -1,0 +1,30 @@
+# Copiar para terraform.tfvars antes de usar.
+# NUNCA commitar terraform.tfvars — está no .gitignore.
+#
+# Secrets (ssh_public_key, credenciais OCI) via variável de ambiente:
+#   export TF_VAR_ssh_public_key="$(cat ~/.ssh/spire-oci.pub)"
+#
+# Credenciais OCI: configurar ~/.oci/config ou variáveis TF_VAR_*
+
+# ── OCI Auth ──────────────────────────────────────────────────────────────────
+tenancy_ocid     = "ocid1.tenancy.oc1..xxxxxxxxxxxxxxxx"
+user_ocid        = "ocid1.user.oc1..xxxxxxxxxxxxxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "us-ashburn-1"
+compartment_ocid = "ocid1.compartment.oc1..xxxxxxxxxxxxxxxx"
+
+# ── Compute ───────────────────────────────────────────────────────────────────
+instance_shape     = "VM.Standard.A1.Flex"
+instance_ocpus     = 4
+instance_memory_gb = 24
+# ssh_public_key via TF_VAR_ssh_public_key
+
+# ── DNS ───────────────────────────────────────────────────────────────────────
+domain = "spire.example.com"   # substituir pelo domínio real
+
+# ── Storage ───────────────────────────────────────────────────────────────────
+artifact_bucket_name = "spire-artifacts"
+
+# ── Tags ──────────────────────────────────────────────────────────────────────
+environment = "reference"

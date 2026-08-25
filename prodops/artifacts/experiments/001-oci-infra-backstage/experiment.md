@@ -233,55 +233,120 @@ Kong: apenas specs PASS expostas via API Gateway
 
 ---
 
-# Estratégia IaC — OpenTofu + Helm
+# Estratégia IaC — Terraform + Helm
 
-## Estrutura de Módulos
+**Decisão (2026-08-25):** Terraform (HashiCorp) — não OpenTofu.
+Boas práticas: arquivos isolados por responsabilidade, módulos reutilizáveis,
+state remoto no OCI Object Storage, tfvars por ambiente, sem secrets em VCS.
+
+## Convenção de Arquivos por Módulo/Ambiente
+
+Cada módulo e cada environment segue a mesma estrutura de arquivos isolados:
+
+```
+<diretório>/
+├── versions.tf       # required_version e required_providers
+├── providers.tf      # configuração do provider (apenas nos environments)
+├── backend.tf        # state remoto (apenas nos environments)
+├── variables.tf      # declaração de todas as variáveis de entrada
+├── locals.tf         # valores derivados e composições internas
+├── data.tf           # data sources (lookups em recursos existentes)
+├── main.tf           # recursos principais ou chamadas de módulos
+└── outputs.tf        # valores exportados
+```
+
+Regras:
+- `main.tf` **nunca** declara variáveis, providers ou outputs — apenas recursos
+- Secrets **nunca** em `.tfvars` commitados — usar `TF_VAR_*` ou OCI Vault
+- Um módulo por responsabilidade de infraestrutura (network ≠ compute ≠ storage)
+
+## Estrutura Completa
 
 ```
 iac/
-├── modules/
-│   ├── oci-network/          # VCN, subnets, security lists, IGW, NAT
-│   ├── oci-compute/          # Instâncias ARM A1, SSH keys, cloud-init
-│   ├── oci-storage/          # Object Storage bucket (artefatos)
-│   ├── oci-lb/               # Load Balancer público
-│   └── oci-vault/            # Vault + secrets (DB passwords, API keys)
-│
-├── k3s/
-│   ├── bootstrap.sh          # Instala K3s no node (via cloud-init)
-│   └── join-agent.sh         # Join de workers
-│
-├── helm/
-│   ├── backstage/            # Chart Backstage (custom ou backstage/backstage)
-│   ├── keycloak/             # Chart Bitnami Keycloak
-│   ├── kong/                 # Chart Kong OSS
-│   ├── postgresql/           # Chart Bitnami PostgreSQL
-│   ├── minio/                # Chart MinIO Operator ou standalone
-│   ├── redis/                # Chart Bitnami Redis
-│   ├── cert-manager/         # Chart cert-manager + ClusterIssuer Let's Encrypt
-│   ├── nginx-ingress/        # Chart ingress-nginx
-│   ├── prometheus-stack/     # Chart kube-prometheus-stack
-│   └── otel-collector/       # Chart OpenTelemetry Collector
+├── modules/                        # Módulos reutilizáveis
+│   ├── oci-network/                # VCN, subnets, IGW, NAT, route tables
+│   │   ├── versions.tf
+│   │   ├── variables.tf
+│   │   ├── locals.tf
+│   │   ├── main.tf
+│   │   └── outputs.tf
+│   │
+│   ├── oci-compute/                # Instância ARM A1, SSH key, cloud-init
+│   │   ├── versions.tf
+│   │   ├── variables.tf
+│   │   ├── locals.tf
+│   │   ├── data.tf
+│   │   ├── main.tf
+│   │   ├── outputs.tf
+│   │   └── templates/
+│   │       └── cloud-init.yaml.tpl # bootstrap K3s + dependências
+│   │
+│   ├── oci-security/               # Security Lists e NSGs
+│   │   ├── versions.tf
+│   │   ├── variables.tf
+│   │   ├── main.tf
+│   │   └── outputs.tf
+│   │
+│   ├── oci-lb/                     # Load Balancer público (Free Tier)
+│   │   ├── versions.tf
+│   │   ├── variables.tf
+│   │   ├── locals.tf
+│   │   ├── main.tf
+│   │   └── outputs.tf
+│   │
+│   ├── oci-storage/                # Object Storage bucket (artefatos OBC)
+│   │   ├── versions.tf
+│   │   ├── variables.tf
+│   │   ├── main.tf
+│   │   └── outputs.tf
+│   │
+│   └── oci-vault/                  # OCI Vault + secrets (senhas, API keys)
+│       ├── versions.tf
+│       ├── variables.tf
+│       ├── main.tf
+│       └── outputs.tf
 │
 ├── environments/
-│   ├── reference/            # OCI Free Tier — instância de referência
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── terraform.tfvars.example
-│   └── local/                # Docker Compose para dev local (sem OCI)
-│       └── docker-compose.yml
+│   ├── reference/                  # OCI Free Tier — instância de referência
+│   │   ├── versions.tf             # Fixa versão do Terraform e providers
+│   │   ├── providers.tf            # Configura provider OCI + helm + kubernetes
+│   │   ├── backend.tf              # State remoto no OCI Object Storage
+│   │   ├── variables.tf            # Variáveis do ambiente
+│   │   ├── locals.tf               # Tags comuns, nomes compostos
+│   │   ├── data.tf                 # Availability Domains, imagens ARM
+│   │   ├── main.tf                 # Chama módulos: network, compute, lb, storage
+│   │   ├── outputs.tf              # IPs, URLs, IDs exportados
+│   │   └── terraform.tfvars.example  # Template sem secrets
+│   │
+│   └── local/                      # Docker Compose (sem Terraform)
+│       ├── docker-compose.yml
+│       ├── .env.example
+│       └── ...
 │
-├── main.tf                   # Raiz — chama módulos
-├── variables.tf
-├── outputs.tf
-└── versions.tf               # Restringe versões do OpenTofu + providers
+├── helm/                           # Helm values por chart
+│   ├── backstage/
+│   │   └── values.yaml
+│   ├── keycloak/
+│   │   └── values.yaml
+│   ├── kong/
+│   │   └── values.yaml
+│   ├── cert-manager/
+│   │   └── values.yaml
+│   └── kube-prometheus-stack/
+│       └── values.yaml
+│
+└── scripts/
+    ├── k3s-bootstrap.sh            # Instala K3s (executado via cloud-init)
+    └── helm-apply.sh               # Aplica todos os charts após K3s pronto
 ```
 
-## Providers OpenTofu
+## versions.tf (environment reference)
 
 ```hcl
-# versions.tf
 terraform {
-  required_version = ">= 1.8"
+  required_version = "~> 1.9"
+
   required_providers {
     oci = {
       source  = "oracle/oci"
@@ -301,6 +366,48 @@ terraform {
     }
   }
 }
+```
+
+## backend.tf (state remoto no OCI Object Storage)
+
+```hcl
+# O bucket de state é criado manualmente antes do primeiro terraform init.
+# Nunca usar state local em ambientes compartilhados.
+terraform {
+  backend "s3" {
+    # OCI Object Storage expõe API S3-compatível
+    bucket                      = "spire-tfstate"
+    key                         = "reference/terraform.tfstate"
+    region                      = "us-ashburn-1"
+    endpoint                    = "https://<namespace>.compat.objectstorage.us-ashburn-1.oraclecloud.com"
+    skip_region_validation      = true
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+    force_path_style            = true
+  }
+}
+```
+
+## terraform.tfvars.example
+
+```hcl
+# Copiar para terraform.tfvars — NUNCA commitar terraform.tfvars
+# Secrets via TF_VAR_* ou OCI Vault
+
+tenancy_ocid     = "ocid1.tenancy.oc1..xxxxxxxx"
+user_ocid        = "ocid1.user.oc1..xxxxxxxx"
+fingerprint      = "xx:xx:xx:xx"
+region           = "us-ashburn-1"
+compartment_ocid = "ocid1.compartment.oc1..xxxxxxxx"
+
+# Compute
+instance_shape       = "VM.Standard.A1.Flex"
+instance_ocpus       = 4
+instance_memory_gb   = 24
+ssh_public_key_path  = "~/.ssh/spire-oci.pub"
+
+# DNS
+domain = "spire.example.com"   # substituir pelo domínio real
 ```
 
 ---
