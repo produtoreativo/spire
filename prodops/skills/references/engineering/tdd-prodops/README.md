@@ -1,9 +1,20 @@
-# TDD ProdOps — Referência de Engenharia
+# ProdOps TDD Reference
 
-Referências de Test-Driven Development para o produto spire.
+**Definition:** Write verifiable contract → integration test → red → green → refactor → observability → evidence.
+TDD here is classical (Detroit school): verify observable state — HTTP responses and DynamoDB state.
 
-## Ciclo Red-Green-Refactor
+## Relation to Hack Flow
 
-1. **Red** — Escreva um teste que falha
-2. **Green** — Implemente o mínimo para passar
-3. **Refactor** — Melhore o código sem quebrar o teste
+TDD drives the Hack phase: Red Bar = entering Hack, Green Bar = Hack in progress, Yellow Bar (refactor) = closing Hack before Commit Workflow.
+
+## Files
+
+| File | Description |
+|------|-------------|
+| [workflow.md](workflow.md) | Complete ProdOps TDD cycle step by step, with "done" criteria for each step |
+| [red-green-refactor.md](red-green-refactor.md) | What is allowed and prohibited in each of the three phases |
+| [integration-first.md](integration-first.md) | Why integration tests precede unit tests; tools and app lifecycle |
+| [mocking-policy.md](mocking-policy.md) | No Mocks Rule: what is prohibited, what is permitted, and enforcement |
+| [observability.md](observability.md) | What to validate in the observability step; Log String pattern |
+| [quality-gates.md](quality-gates.md) | Delivery gates and test quality gates that block merge |
+| [examples.md](examples.md) | Three complete TDD cycle examples in the Payments domain |

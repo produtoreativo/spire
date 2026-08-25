@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mktemp -d)",
+      "Bash(rm -rf .claude/framework .agents/framework .github/framework)",
+      "Bash(rm -rf .claude/artifacts .agents/artifacts .github/artifacts)",
+      "Bash(bash prodops/scripts/doctor.sh)"
+    ]
+  }
+}
