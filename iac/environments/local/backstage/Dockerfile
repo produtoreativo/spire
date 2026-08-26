@@ -1,26 +1,16 @@
-FROM node:20-alpine
+# EXP-002: Use the official Backstage demo image for infrastructure validation.
+# This avoids yarn 4 quarantine issues from nunjitsu (security advisory) and
+# the complexity of building a custom app from scratch.
+#
+# EXP-003 will build a proper custom image with Spire plugins on top of this base.
+# https://github.com/backstage/backstage/pkgs/container/backstage
+FROM ghcr.io/backstage/backstage:latest
 
-# Build deps for node-gyp and sqlite3
-RUN apk add --no-cache git python3 make g++ curl bash
-
-# Scaffold Backstage app (layer cached after first build)
-# --path flag required since create-app dropped positional arg for the app name
-WORKDIR /build
-RUN npx --yes @backstage/create-app@latest --skip-install --path spire
-
-WORKDIR /build/spire
-
-# Install all workspace dependencies (layer cached until package.json/yarn.lock changes)
-RUN yarn install --frozen-lockfile --network-timeout 300000
-
-# Config overlay (mounted last so it doesn't bust the yarn cache layer)
-COPY app-config.local.yaml ./app-config.local.yaml
-
+# Config is injected via APP_CONFIG_ env vars in docker-compose.
 EXPOSE 7007
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=10 --start-period=180s \
-  CMD curl -f http://localhost:7007/healthcheck || exit 1
+# Official Backstage image has no curl/wget — use node's built-in http module
+HEALTHCHECK --interval=30s --timeout=10s --retries=10 --start-period=60s \
+  CMD node -e "require('http').get('http://localhost:7007/healthcheck',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
-# Config is injected via APP_CONFIG_ env vars in docker-compose (avoids path resolution issues
-# with yarn workspace workspace-root vs package-dir CWD ambiguity across yarn versions).
-CMD ["yarn", "workspace", "backend", "start"]
+CMD ["node", "packages/backend", "--config", "app-config.yaml"]

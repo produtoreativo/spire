@@ -210,11 +210,12 @@ services:
       - "traefik.http.routers.backstage.entrypoints=web"
       - "traefik.http.services.backstage.loadbalancer.server.port=7007"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7007/healthcheck"]
+      # Official Backstage image has no curl/wget — use node's built-in http module
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7007/healthcheck',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 180s
+      start_period: 60s
     networks:
       - spire
 

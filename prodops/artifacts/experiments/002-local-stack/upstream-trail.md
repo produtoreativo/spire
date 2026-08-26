@@ -35,6 +35,18 @@
   um container define múltiplos named services via labels.
 - **Fix:** Adicionados labels `service=` explícitos para Kong (2 routers) e MinIO (2 routers).
 
+### 8. Backstage healthcheck — `curl` não disponível na imagem oficial
+- **Sintoma:** Container sempre em "starting" — healthcheck usava `curl` que não existe no `ghcr.io/backstage/backstage` (Node.js image).
+  Traefik respeita o healthcheck Docker e não adiciona o router enquanto está em "starting".
+- **Fix:** Healthcheck via `node -e "require('http').get('http://localhost:7007/healthcheck', ...)"`.
+  Aplicado tanto no `backstage/Dockerfile` quanto no `docker-compose.yml` (compose override tem precedência).
+
+### 7. Backstage build via `@backstage/create-app` bloqueado pelo Yarn 4 quarantine
+- **Sintoma:** `yarn install` falha — `nunjitsu@^0.6.1` quarantinado por security advisory.
+  `YARN_ENABLE_HARDENED_MODE=0` não contorna a quarentena.
+- **Decisão:** Usar `ghcr.io/backstage/backstage:latest` (imagem oficial pré-construída) para EXP-002.
+  EXP-003 criará imagem customizada com plugins Spire, resolvendo a dependência nunjitsu.
+
 ### 6. Kong JWT plugin incompatível com DB-less + Keycloak JWKS
 - **Análise:** Kong OSS JWT plugin exige consumers com public keys pré-declaradas em kong.yml.
   Não suporta JWKS endpoint dinâmico (que é o que o Keycloak expõe).
@@ -78,15 +90,24 @@
 | Traefik → artifacts.spire.localhost (MinIO API) | OK |
 | Kong → proxy para Backstage com rate-limiting + correlation-id | OK (500 esperado sem Backstage) |
 
-### ⏳ Pendente
+### ✅ Backstage (EXP-002 completo)
 
 | Item | Status |
 |------|--------|
-| Backstage build (node:22, yarn install) | Em andamento — 5-15 min |
-| Backstage → PostgreSQL (spire DB) | Aguardando build |
-| Backstage → healthcheck /healthcheck | Aguardando build |
-| Backstage → autenticação via Keycloak OIDC | EXP-003 (plugin auth-module-oidc-provider) |
-| Kong JWT validation via Keycloak | EXP-003 (Kong Enterprise ou solução alternativa) |
+| Backstage → healthy (ghcr.io/backstage/backstage:latest) | OK |
+| Backstage → PostgreSQL (13 plugin databases criados) | OK |
+| Backstage → healthcheck via `node http` (sem curl) | OK |
+| Traefik → backstage.spire.localhost | OK (router enabled) |
+| Kong → api.spire.localhost/backstage/* | OK (proxy funcionando, 401 esperado) |
+| Backstage API 401 sem token | OK (autenticação necessária — comportamento correto) |
+
+### ⏳ EXP-003
+
+| Item | Status |
+|------|--------|
+| Backstage → autenticação via Keycloak OIDC | Requer `@backstage/plugin-auth-backend-module-oidc-provider` |
+| Kong JWT validation via Keycloak | Kong Enterprise ou solução alternativa (lua-resty-oidc) |
+| Custom Backstage image com plugins Spire | Build próprio substitui ghcr.io/backstage/backstage |
 
 ---
 
