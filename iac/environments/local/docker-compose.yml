@@ -72,6 +72,7 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?required}
       KC_FEATURES: token-exchange,admin-fine-grained-authz
+      KC_HEALTH_ENABLED: "true"
     volumes:
       - ./keycloak/realm-spire.json:/opt/keycloak/data/import/realm-spire.json:ro
     depends_on:
@@ -83,11 +84,13 @@ services:
       - "traefik.http.routers.keycloak.entrypoints=web"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:8080/health/ready || exit 1"]
+      # ubi9-micro has no curl/wget; /dev/tcp requires bash (not sh).
+      # Health lives on Quarkus management port 9000 (KC_HEALTH_ENABLED=true not needed).
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && timeout 3 head -1 <&3 | grep -q 200"]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      start_period: 90s
     networks:
       - spire
 
@@ -106,12 +109,14 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.minio-console.rule=Host(`minio.${BASE_DOMAIN:-spire.localhost}`)"
       - "traefik.http.routers.minio-console.entrypoints=web"
+      - "traefik.http.routers.minio-console.service=minio-console"
       - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
       - "traefik.http.routers.minio-api.rule=Host(`artifacts.${BASE_DOMAIN:-spire.localhost}`)"
       - "traefik.http.routers.minio-api.entrypoints=web"
+      - "traefik.http.routers.minio-api.service=minio-api"
       - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -158,9 +163,11 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.kong-proxy.rule=Host(`api.${BASE_DOMAIN:-spire.localhost}`)"
       - "traefik.http.routers.kong-proxy.entrypoints=web"
+      - "traefik.http.routers.kong-proxy.service=kong-proxy"
       - "traefik.http.services.kong-proxy.loadbalancer.server.port=8000"
       - "traefik.http.routers.kong-admin.rule=Host(`kong-admin.${BASE_DOMAIN:-spire.localhost}`)"
       - "traefik.http.routers.kong-admin.entrypoints=web"
+      - "traefik.http.routers.kong-admin.service=kong-admin"
       - "traefik.http.services.kong-admin.loadbalancer.server.port=8001"
     healthcheck:
       test: ["CMD", "kong", "health"]
@@ -172,28 +179,26 @@ services:
 
   # ── Backstage ─────────────────────────────────────────────────────────────────
   backstage:
-    image: node:20-alpine
+    build:
+      context: ./backstage
+      dockerfile: Dockerfile
     container_name: spire-backstage
     restart: unless-stopped
-    working_dir: /app
-    # Em EXP-002 usa a imagem de desenvolvimento do Backstage.
-    # Substituir por imagem buildada quando o plugin Spire existir.
-    command: >
-      sh -c "
-        npx --yes @backstage/create-app@latest --skip-install spire-app 2>/dev/null || true;
-        echo 'Backstage placeholder — substituir por imagem buildada em EXP-003'
-      "
     environment:
-      BASE_URL: ${BACKSTAGE_BASE_URL:-http://backstage.spire.localhost}
-      AUTH_BACKEND_SECRET: ${AUTH_BACKEND_SECRET:?required}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-      POSTGRES_USER: ${POSTGRES_USER:-spire}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
-      KEYCLOAK_BASE_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-spire}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-backstage}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?required}
+      # APP_CONFIG_ vars override app-config.yaml without file path issues
+      APP_CONFIG_app_baseUrl: http://backstage.spire.localhost
+      APP_CONFIG_backend_baseUrl: http://backstage.spire.localhost
+      APP_CONFIG_backend_listen_host: "0.0.0.0"
+      APP_CONFIG_backend_listen_port: "7007"
+      APP_CONFIG_backend_cors_origin: http://backstage.spire.localhost
+      APP_CONFIG_backend_database_client: pg
+      APP_CONFIG_backend_database_connection_host: postgres
+      APP_CONFIG_backend_database_connection_port: "5432"
+      APP_CONFIG_backend_database_connection_user: ${POSTGRES_USER:-spire}
+      APP_CONFIG_backend_database_connection_password: ${POSTGRES_PASSWORD:?required}
+      APP_CONFIG_auth_environment: development
+      APP_CONFIG_auth_session_secret: ${AUTH_BACKEND_SECRET:?required}
+      APP_CONFIG_auth_providers_guest_dangerouslyAllowOutsideDevelopment: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -204,6 +209,12 @@ services:
       - "traefik.http.routers.backstage.rule=Host(`backstage.${BASE_DOMAIN:-spire.localhost}`)"
       - "traefik.http.routers.backstage.entrypoints=web"
       - "traefik.http.services.backstage.loadbalancer.server.port=7007"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7007/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
     networks:
       - spire
 

@@ -1,11 +1,13 @@
 _format_version: "3.0"
 _transform: true
 
-# Kong declarative config — DB-less mode (local dev)
+# Kong declarative config — DB-less mode (local dev / EXP-002)
 #
-# Neste experimento o Kong funciona como proxy frontal para a API do Backstage
-# e valida tokens JWT emitidos pelo Keycloak.
-# Em produção (OCI) será configurado via Helm values com banco PostgreSQL.
+# EXP-002: JWT validation disabled — auth is handled by Backstage + Keycloak OIDC.
+# Kong handles routing, rate-limiting, and request tracing only.
+# JWT plugin (Kong OSS) needs consumers with RS256 public keys pre-declared,
+# which is not compatible with JWKS-only DB-less mode. Revisit in EXP-003
+# using Kong OIDC plugin or Backstage-level auth enforcement.
 
 services:
   - name: backstage-api
@@ -18,20 +20,12 @@ services:
           - /backstage
         strip_path: true
     plugins:
-      - name: jwt
-        config:
-          # Keycloak JWKS endpoint — Kong valida tokens automaticamente
-          # Em produção: substituir pelo JWKS real do Keycloak
-          key_claim_name: kid
-          claims_to_verify:
-            - exp
       - name: rate-limiting
         config:
           minute: 100
           policy: local
 
   - name: spire-specs-api
-    # Endpoint futuro: API de validação de specs do Spire
     url: http://backstage:7007/api/spire
     routes:
       - name: spire-specs-route

@@ -13,7 +13,7 @@ env-check:
 up: env-check
 	@echo "→ Starting Spire local stack..."
 	@chmod +x postgres/init-multiple-dbs.sh
-	docker compose --env-file $(ENV_FILE) up -d --build
+	docker-compose --env-file $(ENV_FILE) up -d --build
 	@echo ""
 	@echo "✓ Stack running. Services:"
 	@echo "  Traefik dashboard : http://localhost:8080"
@@ -28,21 +28,21 @@ up: env-check
 	@echo "  127.0.0.1 minio.spire.localhost artifacts.spire.localhost"
 
 down:
-	docker compose --env-file $(ENV_FILE) down
+	docker-compose --env-file $(ENV_FILE) down
 
 logs:
-	docker compose --env-file $(ENV_FILE) logs -f --tail=50
+	docker-compose --env-file $(ENV_FILE) logs -f --tail=50
 
 ps:
-	docker compose --env-file $(ENV_FILE) ps
+	docker-compose --env-file $(ENV_FILE) ps
 
 restart:
-	docker compose --env-file $(ENV_FILE) restart $(svc)
+	docker-compose --env-file $(ENV_FILE) restart $(svc)
 
 clean:
-	docker compose --env-file $(ENV_FILE) down -v --remove-orphans
+	docker-compose --env-file $(ENV_FILE) down -v --remove-orphans
 	@echo "✓ Volumes and containers removed."
 
 # Abre shell num serviço: make shell svc=keycloak
 shell:
-	docker compose --env-file $(ENV_FILE) exec $(svc) sh
+	docker-compose --env-file $(ENV_FILE) exec $(svc) sh

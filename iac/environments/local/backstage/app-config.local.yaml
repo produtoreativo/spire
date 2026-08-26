@@ -1,0 +1,31 @@
+app:
+  title: Spire Platform (local)
+  baseUrl: http://backstage.spire.localhost
+
+backend:
+  baseUrl: http://backstage.spire.localhost
+  listen:
+    port: 7007
+    host: 0.0.0.0
+  cors:
+    origin: http://backstage.spire.localhost
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
+  database:
+    client: pg
+    connection:
+      host: ${POSTGRES_HOST}
+      port: ${POSTGRES_PORT}
+      user: ${POSTGRES_USER}
+      password: ${POSTGRES_PASSWORD}
+      database: spire
+
+# EXP-002: guest auth for stack validation.
+# Keycloak OIDC requires @backstage/plugin-auth-backend-module-oidc-provider — EXP-003.
+auth:
+  environment: development
+  session:
+    secret: ${AUTH_BACKEND_SECRET}
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
