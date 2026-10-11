@@ -6,18 +6,5 @@ provider "oci" {
   region           = var.region
 }
 
-provider "helm" {
-  kubernetes {
-    host                   = "https://${module.compute.public_ip}:6443"
-    client_certificate     = base64decode(module.compute.k3s_client_cert)
-    client_key             = base64decode(module.compute.k3s_client_key)
-    cluster_ca_certificate = base64decode(module.compute.k3s_ca_cert)
-  }
-}
-
-provider "kubernetes" {
-  host                   = "https://${module.compute.public_ip}:6443"
-  client_certificate     = base64decode(module.compute.k3s_client_cert)
-  client_key             = base64decode(module.compute.k3s_client_key)
-  cluster_ca_certificate = base64decode(module.compute.k3s_ca_cert)
-}
+# helm e kubernetes providers serão adicionados após VM provisionada,
+# lendo o kubeconfig via remote-exec ou local_file data source.

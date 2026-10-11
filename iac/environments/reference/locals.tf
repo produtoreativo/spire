@@ -10,6 +10,7 @@ locals {
     Project     = local.project
     Environment = local.env
     ManagedBy   = "terraform"
+    Tier        = "always-free"
   }
 
   # Sub-domínios derivados do domínio base

@@ -1,11 +1,21 @@
 output "instance_public_ip" {
-  description = "IP público da instância Spire (via Load Balancer)"
+  description = "IP público da instância (acesso SSH + serviços via LB)"
+  value       = module.compute.public_ip
+}
+
+output "lb_public_ip" {
+  description = "IP público do Load Balancer (entry point HTTP/HTTPS)"
   value       = module.lb.public_ip
 }
 
 output "instance_private_ip" {
-  description = "IP privado da instância K3s"
+  description = "IP privado da instância K3s (backend do LB)"
   value       = module.compute.private_ip
+}
+
+output "ssh_command" {
+  description = "Comando SSH para acessar a instância"
+  value       = "ssh -i ~/.ssh/spire-oci opc@${module.compute.public_ip}"
 }
 
 output "artifact_bucket_name" {
@@ -13,19 +23,9 @@ output "artifact_bucket_name" {
   value       = module.storage.bucket_name
 }
 
-output "artifact_bucket_namespace" {
-  description = "Namespace do Object Storage"
-  value       = data.oci_objectstorage_namespace.ns.namespace
-}
-
 output "object_storage_namespace" {
   description = "Namespace OCI para configurar o backend S3 do Terraform"
   value       = data.oci_objectstorage_namespace.ns.namespace
-}
-
-output "vault_id" {
-  description = "OCID do OCI Vault para secrets"
-  value       = module.vault.vault_id
 }
 
 output "domains" {

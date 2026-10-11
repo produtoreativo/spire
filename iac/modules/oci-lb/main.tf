@@ -51,3 +51,43 @@ resource "oci_load_balancer_listener" "http" {
     idle_timeout_in_seconds = 60
   }
 }
+
+# Backend set HTTPS — SSL termination no Traefik (NodePort 30443)
+resource "oci_load_balancer_backend_set" "https" {
+  load_balancer_id = oci_load_balancer_load_balancer.this.id
+  name             = "traefik-https"
+  policy           = "ROUND_ROBIN"
+
+  health_checker {
+    protocol          = "HTTP"
+    port              = var.traefik_http_nodeport
+    url_path          = "/ping"
+    return_code       = 200
+    interval_ms       = 10000
+    timeout_in_millis = 3000
+    retries           = 3
+  }
+}
+
+resource "oci_load_balancer_backend" "https" {
+  load_balancer_id = oci_load_balancer_load_balancer.this.id
+  backendset_name  = oci_load_balancer_backend_set.https.name
+  ip_address       = var.instance_ip
+  port             = var.traefik_https_nodeport
+  backup           = false
+  drain            = false
+  offline          = false
+  weight           = 1
+}
+
+resource "oci_load_balancer_listener" "https" {
+  load_balancer_id         = oci_load_balancer_load_balancer.this.id
+  name                     = "https"
+  port                     = var.https_port
+  protocol                 = "HTTP"
+  default_backend_set_name = oci_load_balancer_backend_set.https.name
+
+  connection_configuration {
+    idle_timeout_in_seconds = 60
+  }
+}

@@ -1,3 +1,6 @@
+# ATENÇÃO: Este módulo gera CUSTO — não está no Always Free Tier.
+# OCI KMS Vault (DEFAULT) ≈ $49/mês + $1/mês por key version.
+# Não instanciar no ambiente reference.
 resource "oci_kms_vault" "this" {
   compartment_id = var.compartment_ocid
   display_name   = "${var.name_prefix}-vault"

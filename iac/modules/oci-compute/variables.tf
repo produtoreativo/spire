@@ -1,11 +1,21 @@
-variable "compartment_ocid"    { type = string }
-variable "name_prefix"         { type = string }
+variable "compartment_ocid" { type = string }
+variable "name_prefix" { type = string }
 variable "availability_domain" { type = string }
-variable "image_id"            { type = string }
-variable "subnet_id"           { type = string }
-variable "nsg_ids"             { type = list(string) }
-variable "ssh_public_key"      { type = string; sensitive = true }
-variable "tags"                { type = map(string); default = {} }
+variable "fault_domain" {
+  type    = string
+  default = ""
+}
+variable "image_id" { type = string }
+variable "subnet_id" { type = string }
+variable "nsg_ids" { type = list(string) }
+variable "ssh_public_key" {
+  type      = string
+  sensitive = true
+}
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
 
 variable "shape" {
   type    = string

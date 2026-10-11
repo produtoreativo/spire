@@ -1,13 +1,12 @@
 _format_version: "3.0"
 _transform: true
 
-# Kong declarative config — DB-less mode (local dev / EXP-002)
+# SUPERSEDED by EXP-005 — Kong now runs in DB mode.
+# Services, routes and plugins are configured via kong/init.sh (Admin API).
+# This file is kept for historical reference (EXP-002 DB-less config).
 #
 # EXP-002: JWT validation disabled — auth is handled by Backstage + Keycloak OIDC.
-# Kong handles routing, rate-limiting, and request tracing only.
-# JWT plugin (Kong OSS) needs consumers with RS256 public keys pre-declared,
-# which is not compatible with JWKS-only DB-less mode. Revisit in EXP-003
-# using Kong OIDC plugin or Backstage-level auth enforcement.
+# EXP-005: oidcify (JWT) + kong-opafy (OPA) plugins added via DB mode Admin API.
 
 services:
   - name: backstage-api

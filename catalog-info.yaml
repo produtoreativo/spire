@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: spire
+  title: Spire — Open-Source Governance Platform
+  description: Plataforma open-source de governança de serviços digitais. Vincula cada serviço a um OBC validado automaticamente contra specs públicas.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: produtoreativo/spire
+  tags:
+    - platform
+    - governance
+    - open-source
+    - backstage-plugin
+    - kong
+    - opa
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:produtoreativo
+  system: spire-platform

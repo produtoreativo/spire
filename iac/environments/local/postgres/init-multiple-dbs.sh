@@ -13,3 +13,4 @@ EOSQL
 
 create_db keycloak
 create_db kong
+create_db apicurio

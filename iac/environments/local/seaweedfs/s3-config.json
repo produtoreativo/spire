@@ -1,0 +1,18 @@
+{
+  "identities": [
+    {
+      "name": "spire",
+      "credentials": [
+        {
+          "accessKey": "spire-access-key",
+          "secretKey": "spire-secret-key"
+        }
+      ],
+      "actions": ["Read", "Write", "Tagging", "List", "Admin"]
+    },
+    {
+      "name": "anonymous",
+      "actions": ["Read", "List"]
+    }
+  ]
+}

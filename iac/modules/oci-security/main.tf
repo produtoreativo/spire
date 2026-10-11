@@ -36,12 +36,20 @@ resource "oci_core_network_security_group_security_rule" "lb_ingress_http" {
   }
 }
 
-resource "oci_core_network_security_group_security_rule" "lb_egress_all" {
+# Egress do LB restrito ao NSG da instância nas portas NodePort (health check + tráfego)
+resource "oci_core_network_security_group_security_rule" "lb_egress_nodeports" {
   network_security_group_id = oci_core_network_security_group.lb.id
   direction                 = "EGRESS"
-  protocol                  = "all"
-  destination               = "0.0.0.0/0"
-  destination_type          = "CIDR_BLOCK"
+  protocol                  = "6"
+  destination               = oci_core_network_security_group.instance.id
+  destination_type          = "NETWORK_SECURITY_GROUP"
+
+  tcp_options {
+    destination_port_range {
+      min = 30000
+      max = 32767
+    }
+  }
 }
 
 # NSG para as instâncias — aceita tráfego do LB e SSH restrito

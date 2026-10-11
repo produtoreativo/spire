@@ -1,0 +1,20 @@
+skip-check:
+  # CKV_OCI_4: boot volume in-transit encryption
+  # is_pv_encryption_in_transit_enabled = true está definido no recurso (nível raiz).
+  # Checkov 3.x busca dentro do bloco launch_options (computed/read-only no provider 8.x),
+  # gerando falso positivo. O atributo correto está presente no main.tf.
+  - CKV_OCI_4
+  # CKV_OCI_21: stateless NSG rules
+  # Stateful é correto para K3s — conexões TCP longas (kubectl, Helm, health checks)
+  # Stateless quebraria retransmissões e conexões estabelecidas
+  - CKV_OCI_21
+
+  # CKV_OCI_9: Object Storage com Customer Managed Key (CMK)
+  # CMK exige OCI KMS Vault (~$49/mês) — fora do Always Free Tier
+  # Criptografia gerenciada pela Oracle está habilitada por padrão
+  - CKV_OCI_9
+
+  # CKV2_OCI_2: NSG egress irrestrito (detecta porta RDP)
+  # Egress 0.0.0.0/0 na instância é necessário para apt, Helm charts, K3s, OCI APIs
+  # Restringir egress quebraria o bootstrap do cloud-init
+  - CKV2_OCI_2

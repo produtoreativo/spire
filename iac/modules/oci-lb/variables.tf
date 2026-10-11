@@ -1,9 +1,12 @@
 variable "compartment_ocid" { type = string }
-variable "name_prefix"      { type = string }
-variable "subnet_id"        { type = string }
-variable "instance_ip"      { type = string }
-variable "nsg_ids"          { type = list(string) }
-variable "tags"             { type = map(string); default = {} }
+variable "name_prefix" { type = string }
+variable "subnet_id" { type = string }
+variable "instance_ip" { type = string }
+variable "nsg_ids" { type = list(string) }
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
 
 variable "shape" {
   description = "Shape do Load Balancer (10Mbps é Free Tier)"

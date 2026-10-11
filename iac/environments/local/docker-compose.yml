@@ -10,14 +10,21 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.file.directory=/etc/traefik/dynamic
+      # HTTP → HTTPS redirect
       - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      # HTTPS entrypoint (TLS config via dynamic/tls.yml)
+      - --entrypoints.websecure.address=:443
       - --log.level=INFO
     ports:
       - "80:80"
-      - "8080:8080"   # Traefik dashboard
+      - "443:443"
+      - "8080:8080"   # Traefik dashboard (HTTP, local only)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/certs:/etc/traefik/certs:ro
     networks:
       - spire
 
@@ -66,9 +73,12 @@ services:
       KC_DB_USERNAME: ${POSTGRES_USER:-spire}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?required}
       KC_HOSTNAME: keycloak.${BASE_DOMAIN:-spire.localhost}
+      KC_HOSTNAME_URL: https://keycloak.${BASE_DOMAIN:-spire.localhost}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_HTTP_PORT: "8080"
+      # Trust X-Forwarded-Proto: https from Traefik so issuer URLs use https://
+      KC_PROXY_HEADERS: xforwarded
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?required}
       KC_FEATURES: token-exchange,admin-fine-grained-authz
@@ -81,11 +91,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.keycloak.rule=Host(`keycloak.${BASE_DOMAIN:-spire.localhost}`)"
-      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
     healthcheck:
-      # ubi9-micro has no curl/wget; /dev/tcp requires bash (not sh).
-      # Health lives on Quarkus management port 9000 (KC_HEALTH_ENABLED=true not needed).
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && timeout 3 head -1 <&3 | grep -q 200"]
       interval: 30s
       timeout: 10s
@@ -94,125 +103,412 @@ services:
     networks:
       - spire
 
-  # ── MinIO — object storage (substituto local do OCI Object Storage) ───────────
-  minio:
-    image: minio/minio:latest
-    container_name: spire-minio
+  # ── Vault — secrets management ───────────────────────────────────────────────
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: spire-vault
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    cap_add:
+      - IPC_LOCK
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-spire}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+      VAULT_ADDR: http://0.0.0.0:8200
+      VAULT_API_ADDR: https://vault.${BASE_DOMAIN:-spire.localhost}
     volumes:
-      - minio_data:/data
+      - ./vault/config.hcl:/vault/config/config.hcl:ro
+      - ./traefik/certs/spire-ca.crt:/etc/ssl/certs/spire-ca.crt:ro
+      - vault_data:/vault/data
+      - vault_init:/vault/init
+    # Vault server fetches OIDC discovery URL itself — needs to resolve *.spire.localhost via host.
+    extra_hosts:
+      - "keycloak.spire.localhost:host-gateway"
+    # Append custom CA to Alpine trust store so Vault trusts it for outbound HTTPS
+    # (OIDC discovery, etc.). Also bypasses docker-entrypoint.sh to run as root — avoids
+    # su-exec to vault user since named Docker volumes are created as root:root.
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["cat /etc/ssl/certs/spire-ca.crt >> /etc/ssl/certs/ca-certificates.crt && exec vault server -config=/vault/config/config.hcl"]
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.minio-console.rule=Host(`minio.${BASE_DOMAIN:-spire.localhost}`)"
-      - "traefik.http.routers.minio-console.entrypoints=web"
-      - "traefik.http.routers.minio-console.service=minio-console"
-      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
-      - "traefik.http.routers.minio-api.rule=Host(`artifacts.${BASE_DOMAIN:-spire.localhost}`)"
-      - "traefik.http.routers.minio-api.entrypoints=web"
-      - "traefik.http.routers.minio-api.service=minio-api"
-      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+      - "traefik.http.routers.vault.rule=Host(`vault.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.vault.entrypoints=websecure"
+      - "traefik.http.routers.vault.tls=true"
+      - "traefik.http.services.vault.loadbalancer.server.port=8200"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 15s
+      # Use vault CLI (127.0.0.1 — BusyBox wget resolves localhost to IPv6, Vault binds IPv4 only).
+      # Exit 2 = sealed (valid), exit 0 = unsealed. Both mean server is up.
+      test: ["CMD-SHELL", "vault status -address=http://127.0.0.1:8200 2>&1 | grep -qE '^(Initialized|Sealed)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+    networks:
+      - spire
+
+  # ── Vault Init — bootstrap engines, policies, secrets ──────────────────────
+  vault-init:
+    image: hashicorp/vault:1.17
+    container_name: spire-vault-init
+    restart: on-failure
+    environment:
+      VAULT_ADDR: http://vault:8200
+      POSTGRES_USER: ${POSTGRES_USER:-spire}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      SEAWEEDFS_ACCESS_KEY: ${SEAWEEDFS_ACCESS_KEY:-spire-access-key}
+      SEAWEEDFS_SECRET_KEY: ${SEAWEEDFS_SECRET_KEY:-spire-secret-key}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-backstage-dev-secret}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?required}
+      AUTH_BACKEND_SECRET: ${AUTH_BACKEND_SECRET:?required}
+      VAULT_KEYCLOAK_CLIENT_SECRET: ${VAULT_KEYCLOAK_CLIENT_SECRET:-vault-dev-secret}
+    extra_hosts:
+      - "keycloak.spire.localhost:host-gateway"
+    volumes:
+      - ./vault/init.sh:/vault/init.sh:ro
+      - ./vault/policies:/vault/policies:ro
+      - ./traefik/certs/spire-ca.crt:/etc/ssl/certs/spire-ca.crt:ro
+      - vault_init:/vault/init
+    entrypoint: ["/bin/sh", "/vault/init.sh"]
+    depends_on:
+      vault:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - spire
+
+  # ── SeaweedFS — object storage S3-compatible (Apache 2.0) ───────────────────
+  seaweedfs-master:
+    image: chrislusf/seaweedfs
+    container_name: spire-seaweedfs-master
+    restart: unless-stopped
+    command: "master -ip=seaweedfs-master -ip.bind=0.0.0.0 -defaultReplication=000"
+    volumes:
+      - seaweedfs_master:/tmp/seaweedfs/master
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:9333/cluster/status"]
+      interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - spire
 
-  # ── MinIO init — cria bucket inicial ─────────────────────────────────────────
-  minio-init:
-    image: minio/mc:latest
-    container_name: spire-minio-init
+  seaweedfs-volume:
+    image: chrislusf/seaweedfs
+    container_name: spire-seaweedfs-volume
+    restart: unless-stopped
+    command: "volume -mserver=seaweedfs-master:9333 -port=8080 -ip.bind=0.0.0.0 -dataCenter=dc1 -dir=/data"
+    volumes:
+      - seaweedfs_data:/data
     depends_on:
-      minio:
+      seaweedfs-master:
         condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-spire}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
-      MINIO_BUCKET: ${MINIO_BUCKET:-spire-artifacts}
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
-        mc mb --ignore-existing local/$$MINIO_BUCKET &&
-        echo 'Bucket ready.'
-      "
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:8080/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - spire
 
-  # ── Kong — API Gateway (DB-less mode para local) ──────────────────────────────
+  seaweedfs-filer:
+    image: chrislusf/seaweedfs
+    container_name: spire-seaweedfs-filer
+    restart: unless-stopped
+    command: 'filer -master="seaweedfs-master:9333" -ip.bind=0.0.0.0'
+    depends_on:
+      seaweedfs-volume:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.seaweedfs.rule=Host(`seaweedfs.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.seaweedfs.entrypoints=websecure"
+      - "traefik.http.routers.seaweedfs.tls=true"
+      - "traefik.http.routers.seaweedfs.service=seaweedfs"
+      - "traefik.http.services.seaweedfs.loadbalancer.server.port=8888"
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:8888/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spire
+
+  seaweedfs-s3:
+    image: chrislusf/seaweedfs
+    container_name: spire-seaweedfs-s3
+    restart: unless-stopped
+    command: 's3 -filer="seaweedfs-filer:8888" -port=8333 -config=/config/s3-config.json'
+    volumes:
+      - ./seaweedfs/s3-config.json:/config/s3-config.json:ro
+    depends_on:
+      seaweedfs-filer:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.seaweedfs-s3.rule=Host(`artifacts.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.seaweedfs-s3.entrypoints=websecure"
+      - "traefik.http.routers.seaweedfs-s3.tls=true"
+      - "traefik.http.routers.seaweedfs-s3.service=seaweedfs-s3"
+      - "traefik.http.services.seaweedfs-s3.loadbalancer.server.port=8333"
+    healthcheck:
+      test: ["CMD-SHELL", "! wget -qO /dev/null http://localhost:8333/ 2>&1 | grep -qF refused"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - spire
+
+  # ── SeaweedFS init — cria bucket inicial ─────────────────────────────────────
+  seaweedfs-init:
+    image: chrislusf/seaweedfs
+    container_name: spire-seaweedfs-init
+    depends_on:
+      seaweedfs-s3:
+        condition: service_healthy
+    environment:
+      BUCKET: ${SEAWEEDFS_BUCKET:-spire-artifacts}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - 'echo "fs.mkdir /buckets/$$BUCKET" | weed shell -master=seaweedfs-master:9333 -filer=seaweedfs-filer:8888 && echo "Bucket $$BUCKET ready."'
+    networks:
+      - spire
+
+  # ── OPA — Open Policy Agent ───────────────────────────────────────────────────
+  opa:
+    image: openpolicyagent/opa:latest-debug
+    container_name: spire-opa
+    restart: unless-stopped
+    command: >
+      run --server --addr=0.0.0.0:8181
+      --set=decision_logs.console=true
+      /policies
+    volumes:
+      - ./opa/policies:/policies:ro
+    healthcheck:
+      # opa eval verifies policy loads correctly (no wget/curl in the static image).
+      # The HTTP server starts after successful policy load.
+      test: ["CMD", "opa", "eval", "--fail", "-d", "/policies", "data.authz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - spire
+
+  # ── Kong migrations — DB schema bootstrap (one-shot) ─────────────────────────
+  kong-migrations:
+    build:
+      context: ./kong
+      dockerfile: Dockerfile
+    container_name: spire-kong-migrations
+    restart: "no"
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: postgres
+      KONG_PG_USER: ${POSTGRES_USER:-spire}
+      KONG_PG_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      KONG_PG_DATABASE: kong
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["kong migrations bootstrap 2>&1 | tail -5; echo 'Migrations done.'"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - spire
+
+  # ── Kong — API Gateway (DB mode + oidcify + kong-opafy) ──────────────────────
   kong:
-    image: kong:3.7-ubuntu
+    build:
+      context: ./kong
+      dockerfile: Dockerfile
     container_name: spire-kong
     restart: unless-stopped
     environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: postgres
+      KONG_PG_USER: ${POSTGRES_USER:-spire}
+      KONG_PG_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      KONG_PG_DATABASE: kong
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: "0.0.0.0:8001"
-      KONG_PLUGINS: bundled
+      # KONG_PLUGINS and KONG_PLUGINSERVER_* are set in the Dockerfile
     volumes:
-      - ./kong/kong.yml:/etc/kong/kong.yml:ro
+      # CA trust — oidcify fetches JWKS from Keycloak HTTPS
+      - ./traefik/certs/spire-ca.crt:/usr/local/share/ca-certificates/spire-ca.crt:ro
+    # update-ca-certificates must run as root before kong starts (CA mounted at runtime)
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["update-ca-certificates && /docker-entrypoint.sh kong docker-start"]
+    extra_hosts:
+      - "keycloak.spire.localhost:host-gateway"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.kong-proxy.rule=Host(`api.${BASE_DOMAIN:-spire.localhost}`)"
-      - "traefik.http.routers.kong-proxy.entrypoints=web"
+      - "traefik.http.routers.kong-proxy.entrypoints=websecure"
+      - "traefik.http.routers.kong-proxy.tls=true"
       - "traefik.http.routers.kong-proxy.service=kong-proxy"
       - "traefik.http.services.kong-proxy.loadbalancer.server.port=8000"
       - "traefik.http.routers.kong-admin.rule=Host(`kong-admin.${BASE_DOMAIN:-spire.localhost}`)"
-      - "traefik.http.routers.kong-admin.entrypoints=web"
+      - "traefik.http.routers.kong-admin.entrypoints=websecure"
+      - "traefik.http.routers.kong-admin.tls=true"
       - "traefik.http.routers.kong-admin.service=kong-admin"
       - "traefik.http.services.kong-admin.loadbalancer.server.port=8001"
     healthcheck:
-      test: ["CMD", "kong", "health"]
+      test: ["CMD-SHELL", "kong health 2>/dev/null || curl -sf http://localhost:8001/status > /dev/null"]
       interval: 15s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kong-migrations:
+        condition: service_completed_successfully
+      opa:
+        condition: service_healthy
     networks:
       - spire
 
-  # ── Backstage ─────────────────────────────────────────────────────────────────
+  # ── Kong Init — configures services, routes and plugins ───────────────────────
+  kong-init:
+    image: curlimages/curl:latest
+    container_name: spire-kong-init
+    restart: on-failure
+    environment:
+      KONG_KEYCLOAK_CLIENT_SECRET: ${KONG_KEYCLOAK_CLIENT_SECRET:-kong-dev-secret}
+      BACKSTAGE_PIPELINE_TOKEN: ${BACKSTAGE_PIPELINE_TOKEN:?required}
+    extra_hosts:
+      - "keycloak.spire.localhost:host-gateway"
+    volumes:
+      - ./kong/init.sh:/kong-init.sh:ro
+      - ./traefik/certs/spire-ca.crt:/etc/ssl/certs/spire-ca.crt:ro
+    entrypoint: ["/bin/sh", "/kong-init.sh"]
+    depends_on:
+      kong:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - spire
+
+  # ── Backstage — IDP com OIDC + TechDocs S3 + OTel + Vault ──────────────────
   backstage:
     build:
-      context: ./backstage
-      dockerfile: Dockerfile
+      # Context = repo root so the Dockerfile can COPY packages/governance-backend/
+      context: ../../..
+      dockerfile: iac/environments/local/backstage/Dockerfile
     container_name: spire-backstage
     restart: unless-stopped
     environment:
-      # APP_CONFIG_ vars override app-config.yaml without file path issues
-      APP_CONFIG_app_baseUrl: http://backstage.spire.localhost
-      APP_CONFIG_backend_baseUrl: http://backstage.spire.localhost
-      APP_CONFIG_backend_listen_host: "0.0.0.0"
-      APP_CONFIG_backend_listen_port: "7007"
-      APP_CONFIG_backend_cors_origin: http://backstage.spire.localhost
-      APP_CONFIG_backend_database_client: pg
-      APP_CONFIG_backend_database_connection_host: postgres
-      APP_CONFIG_backend_database_connection_port: "5432"
-      APP_CONFIG_backend_database_connection_user: ${POSTGRES_USER:-spire}
-      APP_CONFIG_backend_database_connection_password: ${POSTGRES_PASSWORD:?required}
-      APP_CONFIG_auth_environment: development
-      APP_CONFIG_auth_session_secret: ${AUTH_BACKEND_SECRET:?required}
-      APP_CONFIG_auth_providers_guest_dangerouslyAllowOutsideDevelopment: "true"
+      POSTGRES_USER: ${POSTGRES_USER:-spire}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      AUTH_BACKEND_SECRET: ${AUTH_BACKEND_SECRET:?required}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-backstage-dev-secret}
+      SEAWEEDFS_ACCESS_KEY: ${SEAWEEDFS_ACCESS_KEY:-spire-access-key}
+      SEAWEEDFS_SECRET_KEY: ${SEAWEEDFS_SECRET_KEY:-spire-secret-key}
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_ROOT_TOKEN:-}
+      # OTel
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: spire-backstage
+      OTEL_TRACES_SAMPLER: always_on
+      NODE_ENV: development
+      # Static token for pipeline submissions injected by Kong after OPA authorization
+      BACKSTAGE_PIPELINE_TOKEN: ${BACKSTAGE_PIPELINE_TOKEN:?required}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-github-token-not-configured}
+      # Governance plugin: internal service URLs (Docker network)
+      APICURIO_URL: http://apicurio:8080
+      KONG_ADMIN_URL: http://kong:8001
+      MICROCKS_URL: http://microcks:8080
+      # Trust local CA for HTTPS requests via host-gateway
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/spire-ca.crt
+    volumes:
+      - ./backstage/app-config.local.yaml:/app/app-config.local.yaml:ro
+      - ./traefik/certs/spire-ca.crt:/etc/ssl/certs/spire-ca.crt:ro
+    extra_hosts:
+      # Routes *.spire.localhost through host → Traefik (HTTPS) → service
+      - "keycloak.spire.localhost:host-gateway"
+      - "artifacts.spire.localhost:host-gateway"
+      - "vault.spire.localhost:host-gateway"
+    command:
+      - node
+      - packages/backend
+      - --config
+      - app-config.yaml
+      - --config
+      - app-config.local.yaml
     depends_on:
       postgres:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      seaweedfs-s3:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      apicurio:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backstage.rule=Host(`backstage.${BASE_DOMAIN:-spire.localhost}`)"
-      - "traefik.http.routers.backstage.entrypoints=web"
+      - "traefik.http.routers.backstage.entrypoints=websecure"
+      - "traefik.http.routers.backstage.tls=true"
       - "traefik.http.services.backstage.loadbalancer.server.port=7007"
     healthcheck:
-      # Official Backstage image has no curl/wget — use node's built-in http module
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:7007/healthcheck',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - spire
+
+  # ── Apicurio Registry — contract + schema versioning ─────────────────────────
+  apicurio:
+    image: quay.io/apicurio/apicurio-registry:latest
+    container_name: spire-apicurio
+    restart: unless-stopped
+    environment:
+      QUARKUS_HTTP_PORT: "8080"
+      APICURIO_STORAGE_KIND: sql
+      REGISTRY_AUTH_ANONYMOUS_READ_ACCESS_ENABLED: "true"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.apicurio.rule=Host(`registry.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.apicurio.entrypoints=websecure"
+      - "traefik.http.routers.apicurio.tls=true"
+      - "traefik.http.services.apicurio.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/apis/registry/v3/system/info > /dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - spire
+
+  # ── Microcks — AsyncAPI mock + conformance ────────────────────────────────────
+  microcks:
+    image: quay.io/microcks/microcks-uber:latest
+    container_name: spire-microcks
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVICES_UPDATE_DELAY: "0"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.microcks.rule=Host(`microcks.${BASE_DOMAIN:-spire.localhost}`)"
+      - "traefik.http.routers.microcks.entrypoints=websecure"
+      - "traefik.http.routers.microcks.tls=true"
+      - "traefik.http.services.microcks.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ > /dev/null"]
+      interval: 20s
       timeout: 10s
       retries: 10
       start_period: 60s
@@ -235,7 +531,10 @@ services:
 
 volumes:
   postgres_data:
-  minio_data:
+  seaweedfs_master:
+  seaweedfs_data:
+  vault_data:
+  vault_init:
 
 networks:
   spire:

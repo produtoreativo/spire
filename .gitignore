@@ -1,0 +1,15 @@
+# OCI keys accidentally downloaded to repo root
+*.pem
+
+# Terraform
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/errored.tfstate
+**/.terraform.tfstate.lock.info
+*.tfplan
+.env.terraform
+**/*.tf.bak

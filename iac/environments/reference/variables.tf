@@ -41,15 +41,15 @@ variable "instance_shape" {
 }
 
 variable "instance_ocpus" {
-  description = "Número de OCPUs (máximo 4 no Free Tier)"
+  description = "Número de OCPUs (limite atual da conta: 2; máximo Always Free: 4)"
   type        = number
-  default     = 4
+  default     = 2
 }
 
 variable "instance_memory_gb" {
-  description = "RAM em GB (máximo 24 no Free Tier)"
+  description = "RAM em GB (limite atual da conta: 12; máximo Always Free: 24)"
   type        = number
-  default     = 24
+  default     = 12
 }
 
 variable "ssh_public_key" {
@@ -71,6 +71,20 @@ variable "artifact_bucket_name" {
   description = "Nome do bucket OCI Object Storage para artefatos OBC"
   type        = string
   default     = "spire-artifacts"
+}
+
+variable "fault_domain" {
+  description = "Fault domain da instância (vazio = OCI escolhe)"
+  type        = string
+  default     = ""
+}
+
+# ── Acesso SSH ────────────────────────────────────────────────────────────────
+
+variable "allowed_ssh_cidrs" {
+  description = "CIDRs IPv4 permitidos para SSH na instância (restringir ao IP do operador)"
+  type        = list(string)
+  default     = []
 }
 
 # ── Tags ──────────────────────────────────────────────────────────────────────

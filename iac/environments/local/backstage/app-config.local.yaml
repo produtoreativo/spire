@@ -1,27 +1,36 @@
+# EXP-004: Backstage config overrides for Spire local stack (HTTPS + Vault).
+# Injected via --config app-config.local.yaml (takes precedence over app-config.yaml).
+# Values with ${VAR} are resolved from the container environment at runtime.
+
 app:
-  title: Spire Platform (local)
-  baseUrl: http://backstage.spire.localhost
+  title: Spire IDP (local)
+  baseUrl: https://backstage.spire.localhost
 
 backend:
-  baseUrl: http://backstage.spire.localhost
+  baseUrl: https://backstage.spire.localhost
   listen:
+    host: "0.0.0.0"
     port: 7007
-    host: 0.0.0.0
   cors:
-    origin: http://backstage.spire.localhost
-    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
-    credentials: true
+    origin: https://backstage.spire.localhost
+  # Static tokens for external services (pipelines) proxied through Kong.
+  # Kong injects this token in the Authorization header after OPA approves.
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: ${BACKSTAGE_PIPELINE_TOKEN}
+          subject: spire-pipeline
   database:
     client: pg
     connection:
-      host: ${POSTGRES_HOST}
-      port: ${POSTGRES_PORT}
+      host: postgres
+      port: 5432
       user: ${POSTGRES_USER}
       password: ${POSTGRES_PASSWORD}
-      database: spire
+  openTelemetry:
+    serviceName: spire-backstage
 
-# EXP-002: guest auth for stack validation.
-# Keycloak OIDC requires @backstage/plugin-auth-backend-module-oidc-provider — EXP-003.
 auth:
   environment: development
   session:
@@ -29,3 +38,64 @@ auth:
   providers:
     guest:
       dangerouslyAllowOutsideDevelopment: true
+    oidc:
+      development:
+        # metadataUrl via public HTTPS URL (routed through host-gateway → Traefik → Keycloak).
+        # NODE_EXTRA_CA_CERTS trusts the local CA for this HTTPS request.
+        metadataUrl: https://keycloak.spire.localhost/realms/spire/.well-known/openid-configuration
+        clientId: backstage
+        clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+        callbackUrl: https://backstage.spire.localhost/api/auth/oidc/handler/frame
+        prompt: auto
+        signIn:
+          resolvers:
+            - resolver: emailLocalPartMatchingUserEntityName
+            - resolver: emailMatchingUserEntityProfileEmail
+
+techdocs:
+  builder: local
+  generator:
+    runIn: local
+  publisher:
+    type: awsS3
+    awsS3:
+      bucketName: spire-artifacts
+      region: us-east-1
+      # Internal endpoint: SeaweedFS S3 is accessed directly (no TLS needed inside Docker network)
+      endpoint: http://seaweedfs-s3:8333
+      s3ForcePathStyle: true
+      credentials:
+        accessKeyId: ${SEAWEEDFS_ACCESS_KEY}
+        secretAccessKey: ${SEAWEEDFS_SECRET_KEY}
+
+vault:
+  # Internal Vault URL (HTTP, inside Docker network — Traefik handles external TLS)
+  baseUrl: http://vault:8200
+  token: ${VAULT_TOKEN}
+  secretEngine: secret
+  kvVersion: 2
+
+integrations:
+  github:
+    - host: github.com
+      # Set GITHUB_TOKEN in .env to enable GitHub catalog ingestion (read:org, read:repo)
+      token: ${GITHUB_TOKEN:-github-token-not-configured}
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [Component, System, API, Resource, Location, User, Group]
+  locations:
+    - type: file
+      target: /app/examples/entities.yaml
+    - type: file
+      target: /app/examples/org.yaml
+      rules:
+        - allow: [User, Group]
+
+spireGovernance:
+  apicurioUrl: ${APICURIO_URL:-http://apicurio:8080}
+  kongAdminUrl: ${KONG_ADMIN_URL:-http://kong:8001}
+  microcksUrl: ${MICROCKS_URL:-http://microcks:8080}
+  pipelineToken: ${BACKSTAGE_PIPELINE_TOKEN}

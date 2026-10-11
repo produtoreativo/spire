@@ -7,6 +7,7 @@ locals {
 resource "oci_core_instance" "this" {
   compartment_id      = var.compartment_ocid
   availability_domain = var.availability_domain
+  fault_domain        = var.fault_domain != "" ? var.fault_domain : null
   display_name        = "${var.name_prefix}-node"
   shape               = var.shape
   freeform_tags       = var.tags
@@ -23,18 +24,30 @@ resource "oci_core_instance" "this" {
   }
 
   create_vnic_details {
-    subnet_id              = var.subnet_id
-    nsg_ids                = var.nsg_ids
-    assign_public_ip       = false
-    hostname_label         = replace(var.name_prefix, "-", "")
+    subnet_id        = var.subnet_id
+    nsg_ids          = var.nsg_ids
+    assign_public_ip = true
+    hostname_label   = replace(var.name_prefix, "-", "")
   }
+
+  # CKV_OCI_5: desabilita endpoint IMDS legado (v1) — usar apenas IMDSv2
+  instance_options {
+    are_legacy_imds_endpoints_disabled = true
+  }
+
+  # CKV_OCI_4: criptografia em trânsito para boot volume (sem custo adicional)
+  is_pv_encryption_in_transit_enabled = true
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
     user_data           = local.cloud_init
   }
 
-  # Aguarda a instância ficar disponível
+  # Ignora mudanças de image_id: nova imagem Oracle Linux publicada não destrói a instância
+  lifecycle {
+    ignore_changes = [source_details[0].source_id]
+  }
+
   timeouts {
     create = "20m"
   }

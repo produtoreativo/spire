@@ -17,12 +17,32 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://backstage.spire.localhost/*",
+        "https://backstage.spire.localhost/*",
         "http://localhost:7007/*"
       ],
       "webOrigins": [
-        "http://backstage.spire.localhost",
+        "https://backstage.spire.localhost",
         "http://localhost:7007"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "vault",
+      "name": "HashiCorp Vault",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "vault-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "https://vault.spire.localhost/ui/vault/auth/oidc/oidc/callback",
+        "https://vault.spire.localhost/oidc/callback"
+      ],
+      "webOrigins": [
+        "https://vault.spire.localhost"
       ],
       "protocol": "openid-connect",
       "attributes": {
@@ -36,20 +56,61 @@
       "publicClient": false,
       "secret": "kong-dev-secret",
       "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
-      "protocol": "openid-connect"
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "audience-kong",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "kong",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "payments-api-pipeline",
+      "name": "Payments API CI/CD Pipeline",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "payments-pipeline-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "audience-kong",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "kong",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "roles": {
     "realm": [
       { "name": "spire-admin", "description": "Spire platform administrator" },
       { "name": "spire-publisher", "description": "Can publish and validate OBCs" },
-      { "name": "spire-reader", "description": "Read-only access to catalog" }
+      { "name": "spire-reader", "description": "Read-only access to catalog" },
+      { "name": "spire-registrar", "description": "CI/CD pipeline — register service catalog locations" }
     ]
   },
   "users": [
     {
       "username": "admin",
+      "firstName": "Admin",
+      "lastName": "User",
       "email": "admin@spire.local",
       "enabled": true,
       "emailVerified": true,
@@ -58,11 +119,23 @@
     },
     {
       "username": "publisher",
+      "firstName": "Publisher",
+      "lastName": "User",
       "email": "publisher@spire.local",
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "publisher", "temporary": false }],
       "realmRoles": ["spire-publisher"]
+    },
+    {
+      "username": "reader",
+      "firstName": "Reader",
+      "lastName": "User",
+      "email": "reader@spire.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "reader", "temporary": false }],
+      "realmRoles": ["spire-reader"]
     }
   ]
 }

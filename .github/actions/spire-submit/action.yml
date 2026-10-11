@@ -1,0 +1,74 @@
+name: 'Spire Submit'
+description: 'Submit service governance artifacts to Spire — validates OBCs + specs server-side'
+author: 'Spire Platform'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  spire_url:
+    description: 'Spire API URL (e.g. https://api.spire.localhost)'
+    required: true
+  keycloak_url:
+    description: 'Keycloak URL (e.g. https://keycloak.spire.localhost)'
+    required: true
+  client_id:
+    description: 'Keycloak client ID for this service pipeline'
+    required: true
+  client_secret:
+    description: 'Keycloak client secret (store in GitHub Secrets)'
+    required: true
+  realm:
+    description: 'Keycloak realm'
+    required: false
+    default: 'spire'
+  service_path:
+    description: 'Root directory of the service repo (default: repo root)'
+    required: false
+    default: '.'
+  catalog_file:
+    description: 'Path to catalog-info.yaml relative to service_path'
+    required: false
+    default: 'catalog-info.yaml'
+  obcs_dir:
+    description: 'Directory containing OBC markdown files'
+    required: false
+    default: 'prodops/artifacts/obcs'
+  catalog_url:
+    description: 'GitHub raw URL of catalog-info.yaml for permanent catalog registration'
+    required: false
+    default: ''
+  ca_cert_path:
+    description: 'Path to CA cert file for self-signed TLS (local stacks only)'
+    required: false
+    default: ''
+
+outputs:
+  status:
+    description: 'Governance status: governed | governed_with_warnings | rejected'
+  report:
+    description: 'Full JSON governance report from Spire'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Submit to Spire Governance
+      id: submit
+      shell: bash
+      env:
+        SPIRE_URL: ${{ inputs.spire_url }}
+        KEYCLOAK_URL: ${{ inputs.keycloak_url }}
+        SPIRE_CLIENT_ID: ${{ inputs.client_id }}
+        SPIRE_CLIENT_SECRET: ${{ inputs.client_secret }}
+        SPIRE_REALM: ${{ inputs.realm }}
+        GITHUB_ORG: ${{ github.repository_owner }}
+        GITHUB_REPO: ${{ github.event.repository.name }}
+        GITHUB_BRANCH: ${{ github.ref_name }}
+        CA_CERT: ${{ inputs.ca_cert_path }}
+        CATALOG_URL: ${{ inputs.catalog_url }}
+      run: |
+        "${{ github.action_path }}/../../../scripts/spire-submit.sh" \
+          --service-path "${{ inputs.service_path }}" \
+          --catalog "${{ inputs.catalog_file }}" \
+          --obcs "${{ inputs.obcs_dir }}"
