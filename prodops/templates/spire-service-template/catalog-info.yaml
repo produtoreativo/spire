@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service                          # REQUIRED: slug, no spaces
+  title: My Service
+  description: One-line description of what this service does and its business purpose.
+  annotations:
+    backstage.io/techdocs-ref: dir:.        # Required for TechDocs rendering
+  tags:
+    - service
+spec:
+  type: service                             # service | library | batch | worker | website
+  lifecycle: experimental                   # experimental | production | deprecated
+  owner: group:my-team
+  system: my-system                         # Optional: parent system

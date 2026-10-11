@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: My Service API
+  version: 1.0.0                           # Semver: bump MAJOR for breaking changes
+  description: OpenAPI spec for My Service
+  contact:
+    name: My Team
+    email: my-team@example.com
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      tags: [health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok

@@ -1,0 +1,37 @@
+name: Spire Governance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'catalog-info.yaml'
+      - 'api/**'
+      - 'prodops/artifacts/obcs/**'
+      - 'slo.yaml'
+  pull_request:
+    paths:
+      - 'catalog-info.yaml'
+      - 'api/**'
+      - 'prodops/artifacts/obcs/**'
+      - 'slo.yaml'
+  workflow_dispatch:
+
+jobs:
+  govern:
+    name: Submit to Spire
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write    # for PR comments (future: C-05 feedback)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Submit governance artifacts
+        uses: produtoreativo/spire/.github/actions/spire-submit@main
+        with:
+          spire_url: ${{ vars.SPIRE_URL }}
+          keycloak_url: ${{ vars.KEYCLOAK_URL }}
+          client_id: ${{ vars.SPIRE_CLIENT_ID }}
+          client_secret: ${{ secrets.SPIRE_CLIENT_SECRET }}
+          catalog_url: "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/catalog-info.yaml"

@@ -2,10 +2,7 @@
 
 ## Status
 
-- [ ] Planned
-- [x] In Progress
-- [ ] Completed
-- [ ] Cancelled
+- [x] Completed
 
 **Iniciado em:** 2026-08-25
 **Depende de:** EXP-001

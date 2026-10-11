@@ -33,7 +33,25 @@
   Log: `Router X cannot be linked automatically with multiple Services`.
 - **Causa raiz:** Traefik v3 exige `traefik.http.routers.<name>.service=<name>` explícito quando
   um container define múltiplos named services via labels.
-- **Fix:** Adicionados labels `service=` explícitos para Kong (2 routers) e MinIO (2 routers).
+- **Fix:** Adicionados labels `service=` explícitos para Kong (2 routers). MinIO substituído por SeaweedFS (ver issue 9).
+
+### 10. SeaweedFS S3 — anonymous write bloqueado
+- **Sintoma:** PUT/DELETE via S3 API retorna 403. GET `/` e GET `/bucket/` também retornam 403.
+- **Causa:** SeaweedFS S3 sem IAM config bloqueia write anônimo por design. "Auth enabled: false" libera leitura mas não escrita.
+- **Para EXP-002:** Aceito — stack de infraestrutura validado. Upload via filer REST API funciona sem credenciais.
+- **Decisão:** EXP-003 configura IAM com access key + secret para o S3 gateway.
+
+### 9. MinIO SSPL — substituído por SeaweedFS (Apache 2.0)
+- **Motivo:** MinIO usa licença SSPL (Server Side Public License), que não é OSI-approved open source.
+  Não aprovado para uso em stacks de referência do Spire.
+- **Alternativas avaliadas:** LocalStack (requer conta desde março/2026), Garage (AGPL-3.0, single-container),
+  SeaweedFS (Apache 2.0, S3-compatible, multi-component, comunidade ativa).
+- **Decisão:** SeaweedFS — imagem `chrislusf/seaweedfs`, 4 componentes (master + volume + filer + s3 gateway).
+- **Fix:** Substituídos serviços `minio` + `minio-init` por `seaweedfs-master`, `seaweedfs-volume`,
+  `seaweedfs-filer`, `seaweedfs-s3`, `seaweedfs-init`. Volume `minio_data` → `seaweedfs_master` + `seaweedfs_data`.
+  `.env.example`: removidas variáveis `MINIO_ROOT_USER`/`PASSWORD`, adicionada `SEAWEEDFS_BUCKET`.
+  Makefile: URL atualizada para `seaweedfs.spire.localhost` e `artifacts.spire.localhost`.
+- **Acesso dev local:** modo anônimo S3 (sem s3.json). Auth em EXP-003.
 
 ### 8. Backstage healthcheck — `curl` não disponível na imagem oficial
 - **Sintoma:** Container sempre em "starting" — healthcheck usava `curl` que não existe no `ghcr.io/backstage/backstage` (Node.js image).
@@ -62,33 +80,41 @@
 
 ## Validation Results (2026-08-26)
 
-### ✅ Serviços healthy
+### ✅ Serviços healthy (validação final com SeaweedFS)
 
-| Serviço          | Status    | Validação |
-|------------------|-----------|-----------|
-| Traefik v3.1.7   | up        | Dashboard em `localhost:8080` |
-| PostgreSQL 16    | healthy   | `pg_isready` OK; DBs criados: spire, keycloak, kong |
-| Redis 7          | healthy   | `redis-cli ping` → PONG |
-| MinIO latest     | healthy   | `curl /minio/health/live` OK; bucket `spire-artifacts` criado |
-| Kong 3.7.1       | healthy   | Admin API responde em `kong-admin.spire.localhost` via Traefik |
-| Keycloak 25.0.6  | healthy   | Realm `spire` importado; OIDC discovery OK |
-| OTEL Collector   | up        | gRPC :4317 e HTTP :4318 ouvindo |
+| Serviço                | Status    | Validação |
+|------------------------|-----------|-----------|
+| Traefik v3.1           | up        | Dashboard em `localhost:8080`; 8 routers enabled |
+| PostgreSQL 16          | healthy   | `pg_isready` OK; DBs: spire, keycloak, kong + 13 backstage plugins |
+| Redis 7                | healthy   | `redis-cli ping` → PONG |
+| SeaweedFS master 4.13  | healthy   | Cluster status OK em `localhost:9333` |
+| SeaweedFS volume 4.13  | healthy   | Volume server OK; `-ip.bind=0.0.0.0` obrigatório |
+| SeaweedFS filer 4.13   | healthy   | Filer UI em `seaweedfs.spire.localhost` (200) |
+| SeaweedFS S3 4.13      | healthy   | Gateway em `artifacts.spire.localhost` (403 anon = esperado) |
+| Kong 3.7               | healthy   | Admin API em `kong-admin.spire.localhost` (200) |
+| Keycloak 25.0          | healthy   | Realm `spire` importado; OIDC discovery OK (200) |
+| Backstage latest       | healthy   | UI em `backstage.spire.localhost` (200) |
+| OTEL Collector         | up        | gRPC :4317 e HTTP :4318 ouvindo |
 
 ### ✅ Integrações validadas
 
 | Integração | Resultado |
 |------------|-----------|
 | PostgreSQL → múltiplos DBs via init script | OK |
-| MinIO → bucket criado pelo minio-init container | OK |
+| SeaweedFS → bucket `spire-artifacts` criado via `weed shell` + `fs.mkdir` | OK |
+| SeaweedFS filer → UI acessível em `seaweedfs.spire.localhost` | OK (200) |
+| SeaweedFS S3 → gateway acessível em `artifacts.spire.localhost` | OK (403 anon = correto) |
 | Keycloak → conectado ao PostgreSQL (keycloak DB) | OK |
 | Keycloak → realm `spire` importado com clients e usuários | OK |
-| Keycloak OIDC → `/.well-known/openid-configuration` acessível | OK |
-| Traefik → keycloak.spire.localhost | OK |
-| Traefik → api.spire.localhost (Kong proxy) | OK |
-| Traefik → kong-admin.spire.localhost | OK |
-| Traefik → minio.spire.localhost (console) | OK |
-| Traefik → artifacts.spire.localhost (MinIO API) | OK |
-| Kong → proxy para Backstage com rate-limiting + correlation-id | OK (500 esperado sem Backstage) |
+| Keycloak OIDC → `/.well-known/openid-configuration` acessível | OK (200) |
+| Traefik → backstage.spire.localhost | OK (200) |
+| Traefik → keycloak.spire.localhost | OK (200) |
+| Traefik → api.spire.localhost (Kong proxy) | OK (401 sem token = correto) |
+| Traefik → kong-admin.spire.localhost | OK (200) |
+| Traefik → seaweedfs.spire.localhost | OK (200) |
+| Traefik → artifacts.spire.localhost | OK (403 anon = correto) |
+| Kong → proxy para Backstage com rate-limiting + correlation-id | OK (401 esperado) |
+| Backstage → PostgreSQL (13 plugin databases) | OK |
 
 ### ✅ Backstage (EXP-002 completo)
 
@@ -118,8 +144,20 @@ Para acesso via browser (necessário adicionar manualmente):
 ```
 127.0.0.1 backstage.spire.localhost keycloak.spire.localhost
 127.0.0.1 kong-admin.spire.localhost api.spire.localhost
-127.0.0.1 minio.spire.localhost artifacts.spire.localhost
+127.0.0.1 seaweedfs.spire.localhost artifacts.spire.localhost
 ```
+
+## Links locais (após /etc/hosts configurado)
+
+| Serviço | URL |
+|---------|-----|
+| Traefik Dashboard | http://localhost:8080/dashboard/ |
+| Backstage | http://backstage.spire.localhost |
+| Keycloak Admin | http://keycloak.spire.localhost/admin |
+| Kong Admin | http://kong-admin.spire.localhost |
+| Kong Proxy | http://api.spire.localhost |
+| SeaweedFS UI | http://seaweedfs.spire.localhost |
+| Artifacts (S3) | http://artifacts.spire.localhost |
 
 Alternativa: `dnsmasq` com `address=/.spire.localhost/127.0.0.1` para wildcard automático.
 
@@ -132,3 +170,7 @@ Alternativa: `dnsmasq` com `address=/.spire.localhost/127.0.0.1` para wildcard a
 3. **Kong sem JWT** para EXP-002 — Kong OSS DB-less não suporta JWKS dinâmico (EXP-003).
 4. **APP_CONFIG_ env vars** para injeção de config no Backstage — mais confiável que `--config` flags com yarn workspaces.
 5. **bash /dev/tcp** como healthcheck para Keycloak — único mecanismo sem curl/wget na imagem ubi9-micro.
+6. **SeaweedFS** (Apache 2.0) substituiu MinIO (SSPL) — mesmo endpoint S3 em `artifacts.spire.localhost`, filer UI em `seaweedfs.spire.localhost`. Modo anônimo para dev local.
+7. **SeaweedFS volume server** requer `-ip.bind=0.0.0.0` para que o healthcheck via `localhost` funcione. Sem isso, o process faz bind no IP da interface do container (não em loopback).
+8. **SeaweedFS S3 healthcheck** — BusyBox wget retorna exit 1 tanto para HTTP 4xx quanto para connection refused. Fix: `! wget ... 2>&1 | grep -qF refused` distingue pelo texto do erro.
+9. **SeaweedFS init** — `weed shell` não tem flag `-run`. Bucket criado via stdin: `echo "fs.mkdir /buckets/..." | weed shell -master=... -filer=...`.
