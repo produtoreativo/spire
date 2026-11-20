@@ -49,6 +49,9 @@ Eventos com sufixo `*_failed`, `*_rejected`, `*_refused`, `*_error` correlaciona
 ---
 
 #### Mean Time to Recovery (MTTR)
+
+> **Nota 2024-2026:** A formulação DORA 2024-2026 atualizou o nome desta métrica para **Failed Deployment Recovery Time**. O ProdOps Framework mantém o nome MTTR por familiaridade com as equipes, mas reconhece a equivalência. A mesma formulação introduziu **Deployment Rework Rate** como quinta métrica de delivery performance — não adotada neste modelo por sobreposição parcial com o Change Fail Rate existente.
+
 **O que mede:** tempo médio desde a detecção da falha até a recovery completa.
 
 **Por que importa:** falhas acontecem. O que diferencia times maduros é a velocidade de recuperação. Nos estágios avançados (MVT/MLP), MTTR alto é inaceitável.
@@ -139,6 +142,62 @@ Cada produto pode adotar um perfil que repondera as métricas conforme seu foco 
 
 ---
 
+## Métricas de Fluxo Upstream
+
+As métricas DORA e extensões acima medem o modo Downstream (compromisso de entrega). O modo Upstream requer métricas de fluxo próprias, que medem a saúde do processo de redução de incerteza antes do compromisso.
+
+> **Status:** instrumentação automatizada proposta — coleta manual disponível a partir dos `upstream-trail.md` dos experimentos.
+
+### TTE — Time to Evidence
+
+**O que mede:** tempo entre a abertura formal de um experimento e a primeira evidência executável produzida.
+
+**Por que importa:** TTE alto indica que o experimento está em planejamento prolongado ou encontrou impedimento de infraestrutura antes de produzir aprendizado real. É o análogo do Lead Time for Change para o modo Upstream.
+
+**Como medir:** `timestamp(primeira entrada de evidência no upstream-trail)` − `timestamp(experimento aberto)`.
+
+**Sinal de alerta:** TTE > 5 dias úteis sem evidência registrada pode indicar bloqueio não declarado (correlaciona com A1 dos alertas do Plano de Experimento — ver também os sinais diagnósticos S1-S4 do Perpetual Discovery).
+
+---
+
+### Decision Latency
+
+**O que mede:** tempo entre o Evidence Threshold ser declarado como atingido e o CommitmentGate ser convocado.
+
+**Por que importa:** Decision Latency alta indica que o time coletou evidência suficiente mas adiou a decisão de compromisso. É o intervalo entre "sabemos o suficiente" e "decidimos o que fazer com isso".
+
+**Como medir:** `timestamp(CommitmentGate convocado)` − `timestamp(Evidence Threshold declarado como atingido no upstream-trail)`.
+
+**Sinal de alerta:** Decision Latency > 10 dias úteis correlaciona com S4 do Perpetual Discovery — stakeholder bloqueado esperando uma decisão que o time já tem condição de tomar.
+
+---
+
+### Discovery WIP — Work in Progress
+
+**O que mede:** número de experimentos Upstream ativos simultaneamente no repositório.
+
+**Por que importa:** WIP alto no Upstream é análogo ao WIP alto no Downstream — cada experimento paralelo divide a atenção do time e aumenta o custo de alternância de contexto. WIP = 1 por time é o ideal; WIP > 3 requer justificativa explícita.
+
+**Como medir:** contagem de experimentos com status `em andamento` em `prodops/artifacts/experiments/`.
+
+**Referência:** ver [Little's Law](https://en.wikipedia.org/wiki/Little%27s_law) — throughput = WIP / Lead Time. Reduzir WIP aumenta velocidade de conclusão dos experimentos ativos.
+
+---
+
+### Gate Failure Rate
+
+**O que mede:** frequência com que os Gates foram bloqueados antes de serem satisfeitos — ou seja, quantas vezes o CommitmentGate ou o Readiness Gate foram convocados e não passaram na primeira tentativa.
+
+**Por que importa:** um Gate Failure Rate alto indica rigor inadequado na preparação dos artefatos de pré-Gate ou que o time está convocando o Gate antes de estar pronto. Lido pelo Assessment retrospectivo em ciclos Downstream.
+
+**Como medir:** contagem de convocações de Gate (CommitmentGate + Readiness Gate) com outcome bloqueante / total de convocações de Gate, por janela de tempo.
+
+**Sinal de alerta:** Gate Failure Rate > 30% em ciclos consecutivos indica padrão de AP-D1 (Gate Theater) ou AP-D3 (Forced Readiness) — os Gates estão sendo convocados sem que os artefatos satisfaçam os critérios.
+
+**Como coletar:** registros no `upstream-trail.md` (CommitmentGate) e nas sessões de Readiness Gate em `commitment/SKILL.md`; lidos pelo Assessment async.
+
+---
+
 ## Métricas complementares
 
 Usadas em perfis específicos (especialmente `quality` e `ai_readiness`):
@@ -184,3 +243,8 @@ Usadas em perfis específicos (especialmente `quality` e `ai_readiness`):
 → Mapeamento OBC → DORA: `prodops/artifacts/experiments/<slug>/evidence/obc-dora-mapping.md` (criado pelo produto)
 → [Jornada Operation](journeys/operation/README.md)
 → [Reliability Plans](../artifacts/plans/reliability/README.md)
+
+
+---
+
+→ **Próximo:** [Posicionamento — Como Explicar o ProdOps](positioning.md)

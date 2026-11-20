@@ -1,0 +1,1197 @@
+# Changelog — ProdOps Framework
+
+All notable changes to the ProdOps Framework are documented here.
+
+Format: [Semantic Versioning](https://semver.org/). Each entry links to the source
+export from `payments-api` (empirical upstream) when applicable.
+
+---
+
+## [2.15.2] — 2026-10-01
+
+### Fixed — `materialize-skills.sh`: provenance header em sub-arquivos do skill tree
+
+`materialize_steps()` copiava sub-arquivos (`SKILL.en.md`, `references/`,
+`steps/`) sem o cabeçalho `MATERIALIZED FILE`. `install-claude.sh` usa esse
+cabeçalho para distinguir arquivos gerenciados pelo framework de customizações
+do consumidor — sem ele, os sub-arquivos eram pulados (`SKIP (custom)`) em
+atualizações, preservando versões desatualizadas com links quebrados.
+
+**Fix:** `materialize_steps()` agora prefixa cada sub-arquivo `.md` com:
+`<!-- MATERIALIZED FILE — prodops/skills/<skill>/<sub_rel> -->`
+O comentário é inserido após o YAML frontmatter quando presente, ou no início
+do arquivo. A detecção de drift compara contra o conteúdo com o cabeçalho.
+
+**Resultado:** todos os sub-arquivos são atualizados em `install-claude.sh`
+na próxima instalação (`updated (materialized):` em vez de `SKIP (custom):`).
+
+---
+
+## [2.15.1] — 2026-10-01
+
+### Fixed — `install-prodops.sh`: install-claude.sh chamado do clone do framework
+
+`install-prodops.sh` chamava `install-claude.sh` do repositório ALVO
+(`${TARGET_DIR}/prodops/scripts/install-claude.sh`). Dentro desse script,
+`REPO_ROOT` resolve para o diretório alvo, fazendo com que
+`FRAMEWORK_SKILLS_SRC` aponte para `.claude/skills/` do próprio consumidor —
+uma cópia de si mesmo que não atualiza nada.
+
+**Fix:** `INSTALL_CLAUDE` agora aponta para
+`${SCRATCH}/framework/prodops/scripts/install-claude.sh` (o clone do framework),
+garantindo que `REPO_ROOT` dentro do script seja o clone com os arquivos
+materializados da versão instalada. Fallback para o path do alvo caso o clone
+não exista (compatibilidade com cenários de uso direto do script).
+
+---
+
+## [2.15.0] — 2026-10-01
+
+### Fixed — `materialize-skills.sh`: reescrita de caminhos relativos em arquivos materializados
+
+**Problema:** `materialize-skills.sh` copiava `prodops/skills/<skill>/SKILL.md`
+verbatim para `.claude/skills/`, `.agents/skills/` e `.github/skills/`. Caminhos
+relativos como `../../framework/lifecycle.md` resolvem corretamente de
+`prodops/skills/<skill>/` (→ `prodops/framework/lifecycle.md`) mas resolvem
+errado de `.claude/skills/<skill>/` (→ `.claude/framework/lifecycle.md`, que não
+existe). O resultado eram 482 links quebrados nos targets materializados, fazendo
+o `doctor.sh` bloquear o sync em repos consumidores.
+
+**Causa raiz:** a profundidade dos player targets (`.claude/`, `.agents/`,
+`.github/`) é a mesma que `prodops/`, mas estão na raiz do repositório enquanto
+`prodops/` está um nível acima. Um nível extra de `../` é necessário para cruzar
+da raiz do player para a raiz do repositório antes de entrar em `prodops/`.
+
+**Solução:**
+- `rewrite_paths()` adicionado ao materializador: recebe o conteúdo e N
+  (profundidade do arquivo dentro de `<player>/skills/`), reescreve qualquer
+  sequência de exatamente N `../` para `(N+1)` `../` + `prodops/`.
+- Usa lookbehind negativo Perl `(?<![./])` para garantir que apenas sequências
+  exatas de N levels são reescritas — evita falsos positivos em cadeias mais
+  longas como `../../../`.
+- `materialize_skill()` aplica a reescrita (N=2) ao conteúdo de cada SKILL.md
+  antes de escrever nos targets e atualiza a detecção de drift para comparar
+  com o conteúdo reescrito.
+- `materialize_steps()` computa N per-arquivo com base na profundidade de
+  `sub_dir` e aplica a reescrita antes de escrever ou comparar com o target.
+- Bug pré-existente corrigido em `prodops/skills/commitment/SKILL.en.md`:
+  referências `../../../../framework/` corrigidas para `../../framework/`.
+
+**Resultado:** 0 broken links em `.claude/skills/`, `.agents/skills/` e
+`.github/skills/` após re-materialização com `--force`.
+
+---
+
+## [2.14.0] — 2026-10-01
+
+### Changed — `install-claude.sh`: remove fallback para `materialize-skills.sh`; atualização automática de arquivos materializados
+
+A pasta `.claude/` é commitada e versionada no framework desde v2.3.0.
+O instalador (`install-claude.sh`) mantinha um fallback que invocava
+`materialize-skills.sh` quando `.claude/skills/` não era encontrada no clone —
+código morto que criava ambiguidade sobre a fonte autoritativa dos skills.
+
+**Mudanças:**
+
+- **Fallback removido** — `materialize-skills.sh` não é mais chamado por
+  `install-claude.sh`. A única fonte de `.claude/skills/` e `.claude/agents/`
+  é o clone do framework.
+
+- **Atualização automática de arquivos materializados** — em instalações de
+  update, arquivos com o cabeçalho `MATERIALIZED FILE` são sobrescritos
+  automaticamente (sem precisar de `--force`). Arquivos sem esse cabeçalho são
+  preservados como customizações do consumidor.
+
+- **`materialize-skills.sh` marcado como internal-only** — cabeçalho de aviso
+  adicionado: "INTERNAL TOOL — framework development use only." O script é
+  mantido para uso durante o desenvolvimento do próprio framework (manter
+  `.claude/` em sincronia com `prodops/skills/`), mas não pertence ao fluxo
+  de instalação em repositórios consumidores.
+
+**Resultado:** `install-prodops.sh` em qualquer versão >= v2.3.0 entrega
+`.claude/skills/` e `.claude/agents/` atualizados sem nenhuma etapa adicional.
+
+---
+
+## [2.13.0] — 2026-10-01
+
+### Changed — `install-prodops.sh`: summary aponta `/setup` como próximo passo
+
+O instalador exibia "Required manual steps" com instruções para preencher
+manualmente os placeholders do `runtime.yaml` — um trabalho que o `/setup`
+já faz automaticamente. A saída agora é:
+
+**Instalação nova:** bloco destacado no summary recomenda `/setup`:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Next step: invoke /setup to complete configuration          │
+│                                                              │
+│  /setup handles automatically:                               │
+│    • Fill runtime.yaml placeholders (owner, repo, service)   │
+│    • Provision 38 canonical labels in GitHub                 │
+│    • Create GitHub Project (/provision)                      │
+│    • Configure .env from .env.example                        │
+│    • Validate that everything is ready                       │
+│                                                              │
+│  Open Claude Code in this repo and type: /setup              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Atualização:** mensagem simples informando que `/setup` pode ser re-executado
+se novos campos do `runtime.yaml` precisarem de configuração.
+
+**Passos manuais restantes** (não cobertos por `/setup`) continuam listados,
+mas o título agora é explícito: "Remaining manual steps (not covered by /setup)".
+
+---
+
+## [2.12.0] — 2026-10-01
+
+### Changed — skills materializados em todos os players de agente
+
+Skills que existiam em `prodops/skills/` mas não haviam sido materializados
+em `.claude/skills/`, `.agents/skills/` e `.github/skills/`:
+
+| Skill | Status |
+|---|---|
+| `/setup` | novo — materializado em todos os players |
+| `/provision` | novo — materializado em todos os players |
+| `/readiness` | novo — materializado em todos os players |
+| `/refine` | novo — materializado em todos os players |
+
+O `/setup` em particular não aparecia como skill invocável no Claude Code
+porque o arquivo `.claude/skills/setup/SKILL.md` não existia — o skill estava
+definido em `prodops/skills/` mas nunca havia sido materializado.
+
+**Causa raiz:** após a criação de um novo skill via arquivo em `prodops/skills/`,
+é obrigatório rodar `prodops/scripts/agents/materialize-skills.sh --skill <name>`
+para que o skill fique disponível nos players (Claude Code, Codex, GitHub Copilot).
+
+---
+
+## [2.11.0] — 2026-10-01
+
+### Added — skill `/setup`: caminho completo de instalação e configuração
+
+**`prodops/skills/setup/SKILL.md` + EN — novo skill**
+
+Introduz o skill `/setup` como ponto de entrada único para configuração
+completa de um repo recém-instalado com o ProdOps. Resolve o gap onde o
+operador instalava o framework mas não conseguia executar nenhum fluxo
+imediatamente — os passos de configuração eram manuais, dispersos e sem
+rastreabilidade.
+
+**Problema resolvido:**
+
+`install-prodops.sh` copia os arquivos do framework para o repo, mas deixa
+`runtime.yaml` com placeholders (`YOUR_ORG`, `YOUR_REPO`, `YOUR_SERVICE`,
+`project-number: 0`). O operador precisava preencher manualmente, criar labels,
+provisionar o GitHub Project e configurar o `.env` — sem nenhum skill que
+orquestrasse esses passos.
+
+**Estrutura do skill (6 Momentos):**
+
+1. Diagnóstico — detecta campos pendentes no `runtime.yaml` e ausência de labels/projeto
+2. Preencher `runtime.yaml` — infere `owner`/`repository` via `git remote get-url origin`
+3. Provisionar 38 labels canônicos — `operation:*`, `artifact-type:*`, `journey:*` — idempotente
+4. Executar `/provision` — cria GitHub Project via cópia do template, vincula ao repo
+5. Configurar `.env` — copia `.env.example`, garante gitignore
+6. Validar — checklist de conformidade; reporta COMPLETO ou PARCIAL
+
+**Idempotente:** detecta o que já está configurado e pula esses passos.
+Re-executável sem risco em qualquer estágio do setup.
+
+---
+
+### Changed — `runtime.yaml.example`: adiciona `setup` e `provision` na seção `skills:`
+
+Ambos os skills agora são declarados no template que todos os consumidores
+copiam — resolver o gap onde `/provision` existia mas não era encontrado após
+a instalação. A seção `skills:` abre com um bloco `# Setup` destacado.
+
+`framework-version` atualizado para `v2.11.0`.
+
+---
+
+### Changed — `AGENTS.md`: seção **Setup de um Repo Novo**
+
+Adicionada seção no início do guia descrevendo a sequência completa de setup
+e os links para `/setup` e `/provision`. Qualquer agente trabalhando em um
+repo recém-instalado agora sabe que `/setup` é o primeiro skill a invocar.
+
+---
+
+### Changed — `setup-mac.sh` e `setup-wsl.sh`: `PRODOPS_VERSION` → `v2.11.0`
+
+Scripts de setup sincronizados com a versão do framework (estavam em v2.7.0,
+defasados desde as releases v2.8.0–v2.10.0 que foram commits diretos).
+
+---
+
+### Changed — `install-prodops.sh`: `--version` agora opcional (default: latest)
+
+Quando `--version` não é passado, o script resolve automaticamente a última
+release publicada via `gh release view --repo produtoreativo/prodops-framework`.
+
+```bash
+# Antes — obrigatório:
+./prodops/scripts/install-prodops.sh --version v2.11.0
+
+# Agora — funciona sem flag:
+./prodops/scripts/install-prodops.sh
+```
+
+Útil para repos que já têm o ProdOps instalado e querem atualizar para latest
+sem precisar consultar o CHANGELOG. O flag `--version` continua funcionando para
+fixar uma versão específica.
+
+---
+
+## [2.10.0] — 2026-09-30
+
+### Added — skill `/provision`: provisionamento do GitHub Workspace
+
+**`prodops/skills/provision/SKILL.md` + EN — novo skill**
+
+Introduz o skill `/provision` como ponto de entrada único para setup do
+GitHub Workspace a partir do estado virgem (`project-number: 0`).
+
+**Problema resolvido:**
+
+O `workspace-reconciliation` detecta e repara drift em projetos existentes,
+mas não tinha um skill dedicado para o primeiro provisionamento — quando o
+`project-number` ainda é 0 e o projeto gerenciado ainda não existe. Esse gap
+forçava o operador a executar os passos manualmente sem rastreabilidade.
+
+**Estrutura do skill (6 Momentos):**
+
+1. Verificar estado virgem (`project-number: 0` no runtime.yaml)
+2. Localizar template canônico (`ProdOps — template`) via `gh project list`
+3. Criar projeto gerenciado via `gh project copy <template-number>` + tornar PUBLIC
+4. Vincular ao repositório via GraphQL `linkProjectV2ToRepository`
+5. Registrar `project-number` no `runtime.yaml` + commit
+6. Validar conformidade (27 campos, 1 view BOARD, public, link)
+
+**Known Platform Limitations documentadas:**
+
+- `group_by` em views: não configurável via API
+- DELETE de views: REST retorna 404 — usar GraphQL `deleteProjectV2View`
+- `gh project copy` não vincula ao repositório — Momento 4 obrigatório
+- Visibilidade herdada do template — verificar e corrigir após cópia
+
+**Gate de entrada:** skill recusa execução se `project-number` ≠ 0.
+
+---
+
+### Changed — `github-workspace.md` + EN: spec canônica v2
+
+**`prodops/framework/github-workspace.md` + EN — atualização breaking**
+
+Atualiza a Canonical Specification para refletir o estado real verificado
+em `ProdOps — payments-api` em 2026-09-30.
+
+**Campos custom: 8 → 14**
+
+Adicionados:
+
+| Campo | Tipo |
+|---|---|
+| `Cycle` | SINGLE_SELECT (CI Sync, CI Async) |
+| `Phase` | SINGLE_SELECT (10 fases Diligence) |
+| `Mode` | SINGLE_SELECT (Sync, Async, Manual) |
+| `oem-state` | SINGLE_SELECT (11 opções: PENDING → DONE + BLOCKED/REWORKING) |
+| `oem-last-event` | TEXT |
+| `diligence-status` | SINGLE_SELECT (13 opções) |
+| `diligence-evidence` | SINGLE_SELECT (Missing, Partial, Complete, Invalid) |
+| `runtime-sync` | SINGLE_SELECT (Pending, In Sync, Drift, Repairing, Blocked) |
+| `diligence-block-reason` | TEXT |
+| `diligence-finding-id` | TEXT |
+
+Removidos: `Execution Mode`, `Owner`, `Release`, `Evidence Required`.
+
+**Views canônicas: 5 → 1**
+
+Substituídas as 5 views por 1 view única: `01 — Delivery Timeline`
+(BOARD_LAYOUT), herdada automaticamente via `gh project copy`.
+
+**Known Platform Limitations adicionadas:**
+
+- DELETE de views via REST retorna 404 — documentado com workaround GraphQL
+- `group_by` não configurável via API — mantida a limitação existente
+
+---
+
+## [2.9.1] — 2026-09-30
+
+### Fixed — `readiness` Momento 4: sincronização do Iteration Plan
+
+- Momento 4 agora inclui passo 4b: atualizar coluna **Status** do `iteration-plan.md` de `Icebox` → `Pronto para Bootstrap` para cada OBC aprovado.
+- Documenta que o Iteration Plan **não deve ter coluna Estado** — o estado canônico pertence exclusivamente ao OBC file. A ausência da instrução causava drift entre OBC files e o plano.
+- Causa raiz: redundância não governada — Estado duplicado no Iteration Plan sem responsável de atualização definido.
+
+---
+
+## [2.9.0] — 2026-09-30
+
+### Added — `readiness` skill: Readiness Gate como gate de lifecycle
+
+**`prodops/skills/readiness/SKILL.md` + EN — novo skill**
+
+Introduz o skill `/readiness` como gate de lifecycle dedicado, paralelo ao
+`/commitment`. Resolve conflito semântico onde o Readiness Gate era executado
+via `/diligence`, uma jornada operacional transversal sem semântica de gate.
+
+**Problema resolvido:**
+
+O `/diligence` é uma jornada operacional contínua (sincronização de OBCs,
+reconciliação de workspace, drift scan). Usá-la para executar um gate pontual
+e bloqueante conflata jornada com gate — a jornada *pode ser invocada por* um
+gate, mas não *é* o gate.
+
+**Estrutura do skill:**
+
+- 5 Momentos em ordem obrigatória:
+  1. Identificar Escopo (OBCs do BC no commitment-trail)
+  2. Checklist de Artefatos por OBC (OBC status, BDD, ADR, UX, Risks, Reliability Plan)
+  3. Gate Decision (APROVADO ou BLOQUEADO — nunca parcial)
+  4. Registrar gate em `commitment-trail.md` (seção `## Readiness Gate`)
+  5. Invocar `diligence-sync promote` para cada OBC aprovado
+
+**Invariantes:**
+- Gate é por BC inteiro — um OBC falhando bloqueia o BC
+- Nunca produz artefatos — apenas verifica
+- Nunca registra gate BLOQUEADO na trail
+- Reliability Plan obrigatório quando condição de obrigatoriedade é atendida
+
+**Atualizações relacionadas:**
+
+- `prodops/skills/commitment/SKILL.md`: referência `→ /readiness` no lugar de `→ /diligence`
+
+---
+
+## [2.8.0] — 2026-09-29
+
+### Added — `refine` skill: Discovery Downstream no Icebox
+
+**`prodops/skills/refine/SKILL.md` + EN — novo skill**
+
+Introduz o skill `/refine` para coordenar o Discovery Downstream no período do
+Icebox — entre o CommitmentGate (`/commitment`) e o Readiness Gate (`/diligence`).
+
+**Problema resolvido:**
+
+O lifecycle canônico declara que "o Context Discovery ocorre dentro do compromisso,
+na jornada Discovery em modo Downstream" (Downstream Direto). O framework cobria
+os dois extremos do Icebox (`/commitment` + `/diligence`) mas não definia como
+coordenar o trabalho de produção dos artefatos intermediários.
+
+**Escopo do skill:**
+
+- Opera por **Bounded Context** — não por OBC individual
+- 7 Momentos em ordem obrigatória:
+  1. Context Capsule do BC
+  2. Architecture Decision Record (ADR) → `prodops/artifacts/architecture/<bc-slug>-adr.md`
+  3. UX Flows → `prodops/artifacts/product/ux/<bc-slug>-flows.md`
+  4. OBC `Refining → Readiness` (SLIs/SLOs + acceptance criteria) por OBC
+  5. BDD Feature completada por OBC
+  6. `risks.md` atualizado
+  7. Reliability Plan (condicional — bloqueante no Readiness Gate quando condições se aplicam)
+
+**Posição no lifecycle:**
+
+```
+/commitment → [Icebox] → /refine → /diligence → Bootstrap
+```
+
+**Registrado em `runtime.yaml`:**
+```yaml
+refine: prodops/skills/refine/SKILL.md
+```
+
+---
+
+## [2.7.0] — 2026-09-29
+
+### Changed — `commitment` skill: Downstream Direto
+
+**`prodops/skills/commitment/SKILL.md` + EN — redesign de escopo**
+
+O skill `commitment` foi reescrito para cobrir exclusivamente o caminho
+**Downstream Direto** — CommitmentGate sem experimento Upstream prévio.
+
+- **Escopo anterior:** CommitmentGate pós-Upstream + Readiness Gate (dois gates em um skill)
+- **Escopo novo:** CommitmentGate Downstream Direto apenas
+
+**Racional da mudança:**
+- O caminho pós-Upstream já era coberto integralmente pelo `upstream/move-to-downstream`
+  (lê o Decision Package, confirma o outcome, move artefatos, atualiza trails, cria entrada no Iteration Plan)
+- Manter os dois caminhos no mesmo skill criava sobreposição e ambiguidade sobre qual usar
+- O Readiness Gate pertence semanticamente ao `/diligence` — que já o operacionaliza
+
+**O que não mudou:**
+- Pós-Upstream: `/upstream move-to-downstream` continua cobrindo esse caminho sem alterações
+- Readiness Gate: continua em `/diligence`
+- Os 6 outcomes canônicos do CommitmentGate permanecem inalterados
+- O trail de registro pós-Upstream continua no `upstream-trail.md` do experimento
+
+**Novo artefato produzido pelo skill:**
+- `prodops/artifacts/plans/commitment-trail.md` — trail append-only exclusivo do
+  Downstream Direto (análogo ao `upstream-trail.md` dos experimentos, mas para o
+  caminho sem experimento prévio)
+
+---
+
+## [2.6.0] — 2026-09-28
+
+### Added — Issue #20: Extensão da integração Claude Code (Wave 9)
+
+**Item 1 — `install-claude.sh`: instalação de rules e hooks com registro em `settings.json`**
+- Passos 4b e 4c adicionados: copia `prodops/templates/claude/rules/` → `.claude/rules/`
+  e `prodops/templates/claude/hooks/` → `.claude/hooks/` com `chmod +x`
+- `settings.json` template expandido com seção `"hooks"` (PreToolUse: work-item-schema,
+  PostToolUse: evidence-package)
+
+**Item 2 — `check-readiness-gate.sh`: 6 gates (Gate 6 condicional)**
+- Gate 1 corrigido: detecta estado `Readiness` (não `Committed`)
+- Gate 6 adicionado: Reliability Plan, verificado apenas com flag `--check-reliability`
+- Summary message atualizada: "todos os gates obrigatórios passaram"
+
+**Item 3 — `mcp-boundaries.md` + EN: documento canônico de fronteiras MCP**
+- Princípio fundamental: MCP expõe estado; nunca define canon
+- Matriz de fronteiras: 10 categorias de informação com fonte canônica e regra de uso
+- Integrações avaliadas: GitHub, CI/CD, Datadog, AWS
+- Regras de uso legítimo e proibido
+
+**Item 4 — `claude-integration.md` + EN: Guia de Extensão (5 receitas)**
+- Receita 1: adicionar nova skill canônica
+- Receita 2: adicionar gate (hook)
+- Receita 3: adicionar agente
+- Receita 4: propagar mudanças canônicas para adapters Claude
+- Receita 5: validar que Claude opera segundo o canon
+- Cross-reference para `mcp-boundaries.md` adicionado em Referências
+
+**Item 5 — `prodops/framework/evaluation/README.md` + EN: suíte de avaliação (11 cenários)**
+- Cenários 1–11: descoberta de contexto, Intent, distinção Upstream/Downstream,
+  recusa de implementação não autorizada, invocação de skill correta, Diligence,
+  implementação no limite autorizado, Evidence, hooks determinísticos, avanço de
+  estado de Delivery, verificação de Outcome
+- Tabela de 6 testes negativos adicionais (N1–N6)
+
+---
+
+## [2.5.0] — 2026-09-28
+
+### Fixed — Issue #24: canon sync pós-v2.4.0 (4 gaps de alta/média severidade)
+
+**Gap 1 — Estado terminal do OBC: `Operational` → `Released` (alta)**
+- `artifact-governance.md` + EN: ciclo de vida do OBC corrigido
+- `knowledge-vs-execution.md` + EN: lista de estados do artefato corrigida
+- `skills/diligence/SKILL.md` + EN: step Close referencia Released
+- `skills/diligence/diligence-sync/SKILL.md` + EN: todas as referências ao estado terminal
+- `skills/diligence/diligence-sync/steps/close/SKILL.md` + EN: renomeado para Released
+- `skills/diligence/diligence-async/steps/scan/SKILL.md` + EN: tabelas de check e routing
+- `skills/diligence/diligence-async/steps/repair/SKILL.md` + EN: ação de Close
+- `skills/diligence/diligence-async/steps/flag/SKILL.md` + EN: tabela de routing
+
+**Gap 2 — `Assessment Review` como gate (alta)**
+- `artifact-governance.md` + EN: "Quem aprova" do OBC atualizado para
+  "Trio (CommitmentGate) · PM + TL (Readiness Gate)"
+- `phases.md` + EN: Governança da Inception substitui "Assessment Review"
+  por CommitmentGate e Readiness Gate com participantes corretos;
+  diagrama ASCII corrigido; "O que termina a Inception" corrigido
+- `artifact-governance.md:248` e EN mantidos — uso legítimo do termo como
+  atividade da jornada Assessment (não como gate)
+
+**Gap 3 — `Promover com restrição` abre Downstream (média-alta)**
+- `downstream.md` + EN: Momento 1 agora declara que tanto `Promover` quanto
+  `Promover com restrição` abrem o Downstream; escopo restringido deve ser
+  documentado no `upstream-trail.md`
+- `lifecycle.md` + EN: diagrama Mermaid com novo ramo `Promover com restrição`;
+  seção 4 (Commitment) expandida com condição de saída para ambos os outcomes
+
+**Gap 4 — Downstream skill: 5 gates → 6 gates (média)**
+- `skills/downstream/SKILL.md` + EN: Gate de readiness atualizado com gate 6
+  (Reliability Plan condicional) e nota explícita "Gates 1–5 são bloqueantes"
+
+### Fechado
+- Issue #19 fechada (já implementada em commit `7078dad`, sem itens pendentes)
+
+---
+
+## [2.4.0] — 2026-09-26
+
+### Fixed + Added — Wave 8: canon sync pós-Wave 7 (5 gaps da análise do livro)
+
+**IC-3 — Ambiguidade "Fase" vs "Lifecycle Stage" (glossário)**
+- `glossary.md` + EN: entradas Concepção e Inception corrigidas de "Fase que compreende"
+  → "Lifecycle Stage que compreende", eliminando ambiguidade com Phase ontológica
+- Bonus: `glossary.en.md` Inception exit boundary "Committed state" → "Readiness state"
+  (último residual do rename Wave 6 em arquivo EN)
+
+**OC-3 — Gate 5 ausente no Readiness Gate (downstream.md Momento 3)**
+- `downstream.md` + EN: adicionado gate 5 obrigatório e bloqueante
+  "GitHub Issue existente e mapeada no plan.md da iteração ativa"
+- Reliability Plan renumerado de gate 5 para gate 6 (condicional)
+- Nota explícita: "Gates 1–5 são bloqueantes. Gate 6 é bloqueante apenas nas condições declaradas."
+- Alinhado com `skills/commitment/SKILL.md` (que já tinha os 6 gates corretos)
+
+**RU-1 — Artefato "Questions to Answer" indefinido no glossário**
+- `glossary.md` + EN: nova entrada com definição canônica, localização em `experiment.md`
+  e relação com condição epistêmica S3
+- `upstream.md` + EN: cross-link adicionado na referência de S3
+
+**T-1 — Rationale epistêmico do Trio ausente**
+- `glossary.md` + EN: nova entrada "Trio (CommitmentGate)" com rationale completo:
+  três pontos cegos ortogonais de PM (subestima complexidade técnica),
+  Tech Lead (sem urgência estratégica) e Autor (viés de confirmação);
+  justificativa de por que nenhum par de dois é suficiente
+
+**FL-1 — CommitmentGate ausente como nó no flow.md**
+- `flow.md` + EN: diagrama Mermaid reestruturado — CommitmentGate (Trio: PM + TL + Autor)
+  e Readiness Gate (Diligence Sync — PM + Tech Lead) agora são nós distintos e sequenciais,
+  com nó intermediário "Downstream Declared (OBC: Draft → Refining)"
+- Texto descritivo atualizado: "Assessment Review" removido como nome de gate;
+  substituído por CommitmentGate (Momento 1) e Readiness Gate (Momento 3)
+- Linha de resumo do fluxo atualizada para incluir ambos os gates explicitamente
+
+**Hotfixes incluídos nesta versão (commit anterior `2d31ef7`):**
+- IC-1: `glossary.md` "estado Committed" → "estado Readiness" (último sobrevivente Wave 6)
+- IC-2: `lifecycle.md` + EN protocolo de regressão `Readiness → Refining` → `In Delivery → Refining`
+
+---
+
+## [2.3.0] — 2026-09-22
+
+### Added — Snapshot materializado de `.claude/`, `.agents/`, `.github/` no repositório do framework
+
+O framework agora entrega os diretórios de player pré-materializados diretamente
+no repositório canônico, eliminando a necessidade de rodar `materialize-skills.sh`
+ou `materialize-agents.sh` em tempo de instalação ou sync.
+
+**Mudanças:**
+
+- `.claude/skills/`, `.claude/agents/` — snapshot materializado para Claude Code
+- `.agents/skills/`, `.agents/agents/` — snapshot materializado para Codex / OpenAI Agents
+- `.github/skills/` — snapshot materializado para GitHub Copilot
+- `export-framework.sh` agora executa a materialização automaticamente no destino
+  (Step 6c) a cada export, mantendo os snapshots em sincronia com a versão exportada
+- `install-claude.sh` refatorado: Steps 2 e 3 copiam de `.claude/skills/` e
+  `.claude/agents/` pré-materializados em vez de rodar os scripts de build;
+  mantém fallback para versões `< v2.3.0`
+- Corrigido bug em `materialize-agents.sh`: contadores usavam `((N++))` com
+  `set -e`, causando exit code 1 quando o contador partia de 0; substituído por
+  `N=$((N + 1))`, alinhado com o padrão de `materialize-skills.sh`
+
+---
+
+## [2.2.0] — 2026-09-22
+
+### Changed — Alinhamento canônico com from-intent-to-outcome (Waves 6 e 7)
+
+Esta versão consolida dois ciclos de sincronização com o livro canônico do framework
+([from-intent-to-outcome](https://github.com/produtoreativo/from-intent-to-outcome)),
+endereçando inconsistências terminológicas, conceitos ausentes e erros estruturais
+identificados por varredura comparativa. Issues #21 (Wave 6) e #22 (Wave 7).
+
+**Gap 1 — Renaming de estado do OBC: `Committed` → `Readiness` (50+ arquivos PT+EN)**
+
+O estado `Committed` do OBC foi renomeado para `Readiness` em todo o framework para
+alinhar com TERMINOLOGY.md (fonte de verdade). Arquivos atualizados incluem:
+`lifecycle.md`, `phases.md`, `backlogs.md`, `flow.md`, `operating-model.md`,
+`knowledge-vs-execution.md`, `artifact-governance.md`, `artifact-types.md`,
+`product-deck.md`, `claude-integration.md`, `upstream-plan.md`,
+`journeys/README.md`, `journeys/discovery/README.md`, `execution-mapping/matrix.md`,
+`execution-mapping/work-item-schema.md`, todos os pares `.en.md`,
+`execution-model/downstream.en.md`, `obc.en.md`, `journeys/diligence/*`,
+`skills/diligence/*`, `skills/product-context/*`, `templates/obcs/local-obc.*`,
+`templates/claude/rules/prodops-lifecycle.md`, `agents/tpm-agent.*`.
+Exceções preservadas: `CommitmentGate` (nome próprio), `BDD Feature committed` (git),
+`Committed KPIs` (sentido negocial), `Committed Global OBC` (artefato de plataforma).
+
+**Gap 2 — Naming collision S1-S4 resolvida**
+
+- `execution-model/upstream.md` + `.en.md`: S1-S4 substituídos por definições canônicas
+  **epistêmicas** do livro (verificam estado dos artefatos, não tempo decorrido).
+- `upstream-plan.md` + `.en.md`: sinais operacionais renomeados **A1-A4**
+  (Alertas do Plano de Experimento) para eliminar colisão.
+- `dora-metrics.md` + `.en.md`: referência TTE atualizada para A1.
+
+**Gap 3 — 11 entradas canônicas adicionadas ao glossário PT+EN**
+
+Rigor de compromisso, Rigor de exploração, Rigor bloqueante, Rigor não bloqueante,
+Coexistência de modos, Relatório de ciclo, Incerteza residual aceitável,
+Promoção Prematura, Discovery no Downstream, Produção Controlada, Sandbox Deploy.
+Assessment Async: fase **Evoluir** adicionada (Monitor → Alert → Evoluir).
+
+**Gap 4 — CommitmentGate nuances**
+
+- `obc.md` + `.en.md`: path Descartar corrigido (`Refining → Draft → Archived`);
+  statement causal "modo é a causa; estados são o registro verificável".
+- `execution-model/downstream.md` + `.en.md`: framing dual do Gate documentado
+  (torna Perpetual Discovery e Promoção Prematura simultâneamente tratáveis).
+- `skills/commitment/SKILL.md` + `.en.md`: 6 componentes canônicos do Decision Package
+  (com Oportunidades como obrigatório quando existe); teste operacional de verificabilidade;
+  distinção existência ≠ completude nas pré-condições do Gate.
+
+**Gaps 5-7 — Assessment, Diligence, AGENTS**
+
+- `journeys/assessment/README.md` + `.en.md`: regra "Assessment não escreve em Timelines".
+- `journeys/diligence/diligence-sync.md` + `.en.md`: disambiguação Finding Promote vs
+  CommitmentGate Promover.
+- `journeys/diligence/diligence-async.md` + `.en.md`: nuance de saúde (poucos Findings
+  ≠ produto saudável; Findings repetidos = sinal de processo, não de instância).
+- `AGENTS.md`: regra de classificação de modo para agentes (tabela OBC state → modo);
+  dois failure modes nomeados (Rigor máximo indiscriminado, Permissividade total).
+
+**Gap 9 — DORA 2024-2026**
+
+- `dora-metrics.md` + `.en.md`: nota sobre rename MTTR → Failed Deployment Recovery Time
+  e decisão de não adotar Deployment Rework Rate (sobreposição com Change Fail Rate).
+
+**Arquivos de versão atualizados:**
+
+- `prodops/scripts/setup-mac.sh` — `PRODOPS_VERSION` atualizado para `v2.2.0`.
+- `prodops/scripts/setup-wsl.sh` — `PRODOPS_VERSION` atualizado para `v2.2.0`.
+- `prodops/runtime/runtime.yaml.example` — `framework-version` atualizado para `v2.2.0`.
+
+---
+
+## [2.1.0] — 2026-09-01
+
+### Added — Cobertura completa de traduções EN para todos os documentos do framework
+
+Esta versão adiciona a versão em inglês (`.en.md`) de todos os documentos do framework
+que não possuíam tradução, e sincroniza as traduções existentes que haviam divergido do
+conteúdo canônico em português.
+
+**Novos arquivos `.en.md` criados (71 arquivos):**
+
+- `prodops/agents/` — 7 agent files (diligence, downstream, finish, hack, hack-commit, hack-start, hack-tdd)
+- `prodops/framework/events/` — 8 arquivos (README, event-instance-schema, event-type-schema, lifecycle, ontology, shared-types, taxonomy, timeline)
+- `prodops/framework/` — 4 arquivos (automation-first, framework-gaps, github-workspace, positioning)
+- `prodops/framework/journeys/assessment/events/` — README, catalog
+- `prodops/framework/journeys/delivery/events/` — README, catalog
+- `prodops/framework/journeys/diligence/` — 17 arquivos (capabilities, checks, diligence-async, diligence-sync, events, github-workspace*, model/*, workspace-reconciliation)
+- `prodops/runtime/` — 4 arquivos (datadog/README, docs/contract, tools/emit-event/README, tools/emit-event/tests/conformance/README)
+- `prodops/scripts/framework-repo/` — AGENTS, CLAUDE
+- `prodops/skills/delivery/` — SKILL
+- `prodops/skills/diligence/` — 16 arquivos (SKILL, diligence-async/SKILL + steps, diligence-sync/SKILL + steps, workspace-reconciliation/SKILL + steps)
+- `prodops/skills/prodops-emit-event/` — SKILL
+- `prodops/skills/restart/` — SKILL
+- `prodops/templates/diligence/` — evidence, finding, remediation, waiver
+
+**Traduções existentes atualizadas (sincronizadas com o canônico PT):**
+
+- `principles.en.md` — 3 princípios ausentes restaurados (#1 Business intent, #2 Flow over friction, #3 Engineering before implementation)
+- `execution-model/README.en.md` — reescrita completa com seção "Critical distinction — the most common mistake"
+- `execution-model/upstream.en.md` — reescrita completa com CommitmentGate e tabela de journeys
+- `journeys/README.en.md` — diagrama mermaid e tabela Upstream/Downstream ausentes restaurados
+- `journeys/assessment/README.en.md` — stub de 43 linhas substituído por tradução completa
+- `journeys/discovery/spikes.en.md` — stub de 5 linhas substituído por documento completo
+- `execution-mapping/matrix.en.md` — seção Diligence ausente adicionada
+- `execution-mapping/work-item-schema.en.md` — entidades Diligence, operação Reconcile e exemplos YAML adicionados
+- `journeys/delivery/README.en.md` — diagrama mermaid e gate condicional do Reliability Plan corrigidos
+- `journeys/diligence/README.en.md` — diagrama mermaid, nota sobre Output classes e princípios fundamentais restaurados
+- `journeys/delivery/capabilities/reliability-policy.en.md` — triggers de Reliability Plan marcados como obrigatórios (não "recomendados")
+- `journeys/delivery/capabilities/reliability.en.md` — tabela Consuming flows corrigida (Bootstrap → Downstream readiness)
+- `journeys/delivery/phases/hack/README.en.md` — pré-condição ausente corrigida ("readiness, not Bootstrap")
+- `knowledge-vs-execution.en.md` — seção "Canonical Operational Representation" ausente adicionada
+- `operating-model.en.md` — diagrama de Delivery Capability corrigido
+- `phases.en.md` — nota terminológica sobre Lifecycle Stages vs. Phases adicionada
+- `discovery/README.en.md`, `experiments.en.md`, `learnings.en.md`, `upstream-trail.en.md` — entradas faltantes adicionadas
+- `operation/README.en.md` — diagrama mermaid ausente restaurado
+- Múltiplos SKILL.en.md com links e status de sistema incorretos corrigidos
+
+---
+
+## [2.0.0] — 2026-08-31
+
+### Breaking — Modelo de execução: Upstream e Downstream são modos, não jornadas
+
+Esta versão formaliza uma distinção conceitual crítica que altera a leitura canônica
+do Framework. Qualquer documentação, tooling ou agente que mapeasse Upstream = Discovery
+ou Downstream = Delivery precisa ser revisado.
+
+**A distinção correta:**
+
+> Upstream e Downstream são **modos de execução** — definem o nível de compromisso e
+> rigor aplicado ao trabalho, não qual jornada está sendo executada.
+>
+> As **5 jornadas** (Discovery, Delivery, Operation, Assessment, Diligence) existem
+> **nos dois modos**. O modo determina o rigor; a jornada determina o que está sendo feito.
+
+A leitura de mercado — "upstream = fase de discovery, downstream = fase de delivery" —
+não se aplica ao ProdOps. Esta versão documenta explicitamente essa distinção em múltiplos
+pontos do framework para eliminar ambiguidade.
+
+### Changed
+
+- `prodops/framework/execution-model/README.md` — reescrito com seção "Distinção crítica —
+  o erro mais comum", tabela expandida de terminologia canônica (agora inclui Assessment e
+  Diligence), diagrama ASCII de comportamento por jornada/modo, e "Frase canônica" ao final.
+  Fluxo de decisão da Business Intent refatorado: antes era um esboço de dois caminhos;
+  agora é um diagrama preciso com CommitmentGate como gate explícito de transição de modo.
+
+- `prodops/framework/execution-model/upstream.md` — adicionadas seções "Jornadas no Upstream"
+  (tabela das 5 jornadas com comportamento por jornada), "Três atos de implantação no Upstream"
+  (Sandbox Deploy, Produção Controlada, Promoção de Capability — com distinções de autorização
+  e reversão) e "Encerramento do Upstream — CommitmentGate" (expandido de 4 para 6 outcomes
+  canônicos: Promover, Promover com restrição, Requer outro experimento, Aguardar decisão de
+  negócio, Arquivar, Descartar). Frase de propósito do modo atualizada: "código descartável"
+  substituído por "rigor é uma escolha do engenheiro, não uma imposição do modo".
+
+- `prodops/framework/flow.md` — descrição do Upstream atualizada: adicionadas todas as 5
+  jornadas com rigor advisory; CommitmentGate nomeado explicitamente no fluxo de transição.
+  Downstream também atualizado: todas as 5 jornadas com rigor bloqueante. Adicionada nota
+  anti-confusão com a leitura de mercado (upstream/downstream como fases sequenciais).
+
+- `prodops/framework/glossary.md` — definições de Upstream e Downstream expandidas com
+  comportamento pós-CommitmentGate por outcome. Clarificado que "código descartável" é uma
+  simplificação imprecisa: o código produzido no Upstream pode ter qualidade de produção e
+  ser implantado por decisão do time sem constituir promoção de capability.
+
+- `prodops/framework/journeys/README.md` — adicionada seção "Jornadas por modo" com diagrama
+  ASCII mostrando as 5 jornadas em ambos os modos e CommitmentGate como gate de transição.
+  Nota explícita contra a leitura de mercado.
+
+- `prodops/framework/journeys/discovery/README.md` — seção "Relationship with Assessment"
+  renomeada para "CommitmentGate — Transição Upstream → Downstream". Pré-condições, trio e
+  outcomes do CommitmentGate documentados com detalhamento de protocolo. Fluxo Mermaid
+  atualizado: "aprendizados suficientes promovem" → "CommitmentGate → Promover".
+
+- `prodops/framework/positioning.md` — atualizado para refletir a distinção modo/jornada.
+
+- `prodops/scripts/setup-mac.sh` — `PRODOPS_VERSION` atualizado para `v2.0.0`.
+- `prodops/scripts/setup-wsl.sh` — `PRODOPS_VERSION` atualizado para `v2.0.0`.
+- `prodops/runtime/runtime.yaml.example` — `framework-version` atualizado para `v2.0.0`.
+
+### Source
+
+Exportado de `procurare` (contributor) — commit `664fbde`.
+Branch: `upstream-book`.
+
+---
+
+## [1.14.1] — 2026-08-20
+
+### Fixed
+
+- `.prodopsignore` — adicionadas entradas `README.md`, `README.en.md` e `consumers.yaml` ao
+  `.prodopsignore` raiz da RI; evita que o Framework sobrescreva documentação e `consumers.yaml`
+  do produto consumer a cada sync.
+
+- `prodops/scripts/install-prodops.sh` — seed do `.prodopsignore` gerado em fresh install agora
+  inclui as mesmas 3 entradas (`README.md`, `README.en.md`, `consumers.yaml`); sem esta correção,
+  o primeiro sync após a instalação sobrescrevia os arquivos root do produto.
+
+- `prodops/skills/README.md` + `README.en.md` — removida referência produto-específica
+  `payments-api-local-testing` que causava `BROKEN_LINK` no `doctor.sh` de qualquer repositório
+  consumer; substituída por placeholder genérico.
+
+- `prodops/exec/consumers.yaml` — registrados 6 repositórios consumidores
+  (`prodops-portfolio`, `prodops-workspace`, `webshop`, `webshop-api`, `search-api`,
+  `order-mngt-api`) para habilitar CI dispatch automático via `notify-consumers.yml`.
+
+---
+
+## [1.14.0] — 2026-08-16
+
+### Fixed
+
+- `prodops/scripts/install-prodops.sh` — corrigidos todos os gaps de instalação em fresh install:
+
+  **Step 5b** — `runtime.yaml` auto-criado a partir de `runtime.yaml.example` quando ausente;
+  `framework-version` já atualizado para a versão instalada; emite manual step apenas para
+  preencher valores produto-específicos (org, project number, Datadog service, CloudEvents source).
+  Antes: pulava com SKIP e deixava o runtime completamente inoperante.
+
+  **Step 7** — `prodops/exec/manifest.yaml` pré-preenchido com `product.name`,
+  `product.repository` e `github.repository` derivados do `basename` do diretório-alvo;
+  manual step atualizado para listar apenas os 4 campos que realmente precisam de input humano
+  (`<GITHUB_ORG>`, `<SERVICE_NAME>`, `<PROJECT_NAME>`, `github.projects.number`).
+  Antes: todos os campos eram `<PLACEHOLDER>`, incluindo nome e repositório.
+
+  **Step 8** — novos arquivos seed criados para eliminar os 5 FAILs garantidos do `doctor.sh`:
+  - `prodops/README.md` — template com nome do produto, tabela de jornadas e links rápidos;
+    lido obrigatoriamente pelo agente na primeira sessão via AGENTS.md
+  - `prodops/skills/local/README.md` — README mínimo com nome do produto
+  - `prodops/skills/references/local/README.md` — README de referências
+  - `prodops/skills/references/local/engineering/clean-code/` — diretório com `.gitkeep`
+  - `prodops/skills/references/local/engineering/ddd/` — diretório com `.gitkeep`
+  - `prodops/scripts/local/README.md` — README de scripts locais
+  Antes: todos esses caminhos ficavam ausentes e causavam FAILs no doctor.sh a cada fresh install.
+
+- `prodops/scripts/check-env.sh` — banner de cabeçalho agora exibe o nome do produto
+  dinamicamente (derivado de `prodops/exec/manifest.yaml` → `git rev-parse --show-toplevel`
+  → "ProdOps" como fallback); caixa com largura adaptável ao tamanho do nome.
+  Antes: "clawfight" estava hardcoded no script canônico, exibindo o nome errado em qualquer
+  outro repositório consumidor.
+
+---
+
+## [1.13.0] — 2026-08-16
+
+### Added
+
+- `prodops/scripts/framework-repo/AGENTS.md` — guia do agente para o repositório
+  `prodops-framework` em si, exportado como `AGENTS.md` na raiz do framework:
+  - Seção ⚠️ prominente com a regra crítica de versionamento
+  - Tabela de arquivos que devem ser atualizados a cada bump de versão
+  - Protocolo de review de PRs de export
+  - Descrição da estrutura do repositório e o que pode ser editado diretamente
+
+- `prodops/scripts/framework-repo/CLAUDE.md` — instrução para Claude Code operando
+  no repositório do framework, exportado como `CLAUDE.md` na raiz do framework:
+  - Aponta para `AGENTS.md` como fonte de autoridade
+  - Repete a regra de versão de forma concisa para acesso rápido por agentes
+  - Avisa que scripts canônicos não devem ser editados diretamente no framework repo
+
+### Changed
+
+- `prodops/exec/export-manifest.yaml` — adicionada seção `root_files:` que declara
+  `AGENTS.md` e `CLAUDE.md` como arquivos exportados para a raiz do framework repo
+  (não sob `prodops/`); `CLAUDE.md` marcado como `versioned: true`
+
+- `prodops/scripts/export-framework.sh` — novo Step 6b que copia
+  `scripts/framework-repo/AGENTS.md` e `scripts/framework-repo/CLAUDE.md` para
+  a raiz do repo destino; `CLAUDE.md` é versionado antes de ser sobrescrito:
+  backup nomeado `CLAUDE.md.<versão>.bak` quando o conteúdo diverge
+
+- `prodops/scripts/install-prodops.sh` — backup de `CLAUDE.md` e `AGENTS.md`
+  em updates agora usa o número da versão anterior em vez de timestamp:
+  `CLAUDE.md.v1.X.Y.bak` / `AGENTS.md.v1.X.Y.bak` — identifica com clareza
+  qual versão do framework cada backup corresponde
+
+### Gate
+
+- `prodops/scripts/validate-export-manifest.sh` — dois novos checks:
+  1. **Versão sync**: `PRODOPS_VERSION` em `setup-wsl.sh` e `setup-mac.sh`
+     deve ser igual à versão em `framework-lock.yaml`; falha o export se divergir
+  2. **Root files presentes**: `scripts/framework-repo/AGENTS.md` e
+     `scripts/framework-repo/CLAUDE.md` devem existir antes do export
+
+---
+
+## [1.12.0] — 2026-08-16
+
+### Changed
+
+- `prodops/scripts/setup-wsl.sh` — integração WSL2 do Docker Desktop agora é habilitada automaticamente após a instalação:
+  - Inicia o Docker Desktop via PowerShell para gerar o arquivo de settings (`settings-store.json` / `settings.json`)
+  - Aguarda até 30 s pela criação do arquivo (primeira execução)
+  - Usa `jq` para habilitar `wslEngineEnabled`, `enableIntegrationWithDefaultWslDistro` e adicionar a distro atual a `integratedWslDistros`
+  - Reinicia o Docker Desktop via PowerShell e aguarda até 60 s pelo daemon
+  - Fallback com instrução manual caso o arquivo de settings não seja encontrado ou a atualização falhe
+
+---
+
+## [1.11.0] — 2026-08-16
+
+### Added
+
+- `prodops/scripts/setup-mac.sh` — bootstrap completo para macOS via Homebrew:
+  - Instala Homebrew se ausente; configura `brew shellenv` em `.zshrc`/`.bash_profile` no Apple Silicon
+  - Instala `bash ≥ 4`, `git`, `curl`, `jq`, `gawk`, `diffutils`, `gnu-sed`, `python3`, `PyYAML`
+  - Instala `nvm` + `Node.js 20`, `gh` (GitHub CLI), `Docker Desktop` (via `brew cask`)
+  - Suporte a `GITHUB_TOKEN` para autenticação sem browser
+  - Clona `payments-api`, executa `npm install` e valida com `check-env.sh`
+  - Flag `--optional` instala `aws-cli`, `aws-cdk`, `cdklocal`, `awslocal`, `ripgrep`
+  - Relatório de instalação no final: tabela com nome, descrição, status e detalhe de cada ferramenta
+  - Adicionado ao `export-manifest.yaml` e ao gate `validate-export-manifest.sh`
+
+### Changed
+
+- `setup-wsl.sh` e `setup-mac.sh` — `PRODOPS_VERSION` exibida no cabeçalho de execução
+
+### Fixed
+
+- `setup-wsl.sh` — `DOCKER_INSTALLED` não era marcado `true` após instalação via winget,
+  fazendo o fallback de download direto sempre executar mesmo com winget bem-sucedido
+- `setup-mac.sh` — `declare -A` (array associativo) substituído por array indexado simples,
+  corrigindo falha de syntax com bash 3.2 (padrão do macOS) antes da instalação do bash 4
+
+---
+
+## [1.10.0] — 2026-08-16
+
+### Added
+
+- `setup-wsl.sh` — instalação automática do Docker Desktop no contexto Windows (Contexto A):
+  - Detecta Docker via WSL e `Get-Command docker` no Windows
+  - Instala via `winget` (preferencial) com detecção de arquitetura AMD64/ARM64
+  - Fallback para download direto do instalador oficial
+  - Orienta habilitação da integração WSL2 após instalação
+
+- `setup-wsl.sh` — relatório de instalação no final do Contexto B (Ubuntu):
+  - Tabela com tecnologia, descrição, status (`OK` / `JÁ INSTALADO` / `ATENÇÃO` / `FALHOU`) e detalhe
+  - Contador de totais por categoria ao final
+
+---
+
+## [1.9.0] — 2026-08-12
+
+### Changed
+
+- `prodops/scripts/setup-wsl.sh` — reescrito como bootstrap completo de ambiente:
+  - **Contexto A — Windows (Git Bash/MSYS2):** detecta Ubuntu no WSL2; se ausente,
+    instala `Ubuntu-24.04` via `wsl --install` e reinvoca o script dentro dele
+  - **Contexto B — Ubuntu/WSL2 ou nativo:** instala todas as dependências,
+    autentica `gh`, clona `payments-api`, executa `npm install` e valida com
+    `check-env.sh` ao final
+  - Suporte a `--optional` para `aws-cli v2`, `aws-cdk`, `cdklocal`, `awslocal`, `ripgrep`
+  - One-liner funcional: `curl -fsSL <url> | bash`
+  - Exit code `1` em SO não suportado ou falha fatal
+
+---
+
+## [1.8.0] — 2026-08-12
+
+### Added
+
+- `prodops/scripts/setup-wsl.sh` — script de instalação automática de ambiente para
+  WSL2 (Ubuntu/Debian), cobrindo todas as ferramentas exigidas por `check-env.sh`:
+  - Instala `git`, `curl`, `jq`, `awk`, `diff`, `sed`, `uuid-runtime`, `python3`,
+    `PyYAML` via `apt` e `pip3`
+  - Instala `nvm` + `Node.js 20` e configura `~/.bashrc` / `~/.zshrc`
+  - Instala `gh` (GitHub CLI) via repositório oficial
+  - Valida presença do Docker e guia integração WSL2 com Docker Desktop
+  - Flag `--optional` instala `aws-cli v2`, `aws-cdk`, `cdklocal`, `awslocal`, `ripgrep`
+  - Orientações pós-instalação: `gh auth login` e `check-env.sh --fix-hints`
+  - Adicionado ao `export-manifest.yaml` e ao gate `validate-export-manifest.sh`
+
+---
+
+## [1.7.0] — 2026-08-12
+
+### Added
+
+- `prodops/scripts/check-env.sh` — novo script canônico que verifica se todas as
+  ferramentas e configurações de runtime necessárias estão presentes no ambiente
+  de desenvolvimento:
+  - Suporte a `--fix-hints` para exibir comandos de instalação de cada ferramenta ausente
+  - Saída com símbolos ✅ / ⚠️ / ❌ e exit code `1` quando qualquer ferramenta está ausente
+  - Adicionado ao `export-manifest.yaml` como script canônico exportável
+  - Validação pelo `validate-export-manifest.sh` no gate de exports
+
+---
+
+## [1.6.2] — 2026-08-11
+
+### Fixed
+
+- `prodops/scripts/install-prodops.sh` — consumer root files are now explicitly
+  protected from being overwritten by the framework file-copy step:
+  - `is_protected()` returns unconditionally for `README.md`, `README.en.md`,
+    `.gitignore`, `.gitattributes`, `LICENSE`, and `CHANGELOG.md` — these paths
+    are always skipped, regardless of whether they exist in the target repo
+  - Step 4 adds a paranoia guard that rejects any path not starting with
+    `prodops/`, making the architectural boundary auditable even if the `find`
+    scope changes in the future
+
+---
+
+## [1.6.1] — 2026-08-11
+
+### Fixed
+
+- `prodops/scripts/install-prodops.sh` — Steps 11 and 12 now detect changes and
+  update on re-runs instead of skipping silently:
+  - **CLAUDE.md** (Step 11): compares existing file with the canonical framework
+    template; if different, backs up as `CLAUDE.md.bak.YYYYMMDD-HHMMSS` and
+    writes the updated template. Reports `up to date` when content matches.
+  - **AGENTS.md** (Step 12): same backup-and-overwrite logic; the update path
+    regenerates the template (substituting `PRODUCT_NAME`) into a temp file, diffs
+    against the installed copy, and only overwrites when content diverges. Backup
+    path is added to manual steps so operators can re-apply their customizations.
+
+---
+
+## [1.6.0] — 2026-08-11
+
+### Changed
+
+- `prodops/scripts/install-prodops.sh` — now works as both **install** and **update**:
+  - Detects mode automatically: reads `framework-lock.yaml` to determine if it is a
+    fresh install or a version update; prints `Mode: fresh install` or
+    `Mode: update (vX → vY)` in the header
+  - **Step 5** — on update, rewrites version fields in the existing `framework-lock.yaml`
+    in place (preserves consumer content); on fresh install, creates the file as before
+  - **Step 5b** (new) — updates `framework-version` in `prodops/runtime/runtime.yaml`
+    after every install or update, eliminating silent version drift between the lock file
+    and the runtime config
+  - `is_protected()` now guards `prodops/runtime/runtime.yaml` against being overwritten
+    by the framework file-copy step
+  - `.prodopsignore` template now includes `prodops/runtime/runtime.yaml` with an
+    explanatory comment, so `sync-from-framework.sh` also skips it
+  - Commit message suggestion switches to
+    `chore(prodops): update ProdOps Framework vX → vY` on update mode
+
+- `prodops/scripts/sync-from-framework.sh` — after updating `framework-lock.yaml`,
+  now also updates `framework-version` in `prodops/runtime/runtime.yaml` if present;
+  PR body lists `prodops/runtime/runtime.yaml` as a protected path
+
+### Fixed
+
+- `prodops/scripts/diligence/ensure-fields.sh` — all custom field names changed from
+  space separator to hyphen separator to match `sync.sh` expectations and the project 25
+  canonical structure (e.g. `oem state` → `oem-state`, `diligence status` →
+  `diligence-status`, `runtime sync` → `runtime-sync`); `oem cycle` renamed to `Cycle`
+  to align with `sync.sh` and project 25
+- `prodops/scripts/diligence/ensure-views.sh` — replaced 4 views (Iteration Backlog,
+  Delivery Board, Delivery Blocked, Delivery Done) with the single board view
+  `"01 — Delivery Timeline"` that matches project 25; removed `ITERATION_ID` /
+  `JOURNEY_VALUE` env vars that are no longer needed
+- `prodops/scripts/diligence/ensure-issues.sh` — field name references updated from
+  space to hyphen convention, consistent with `ensure-fields.sh`
+
+---
+
+## [1.5.0] — 2026-08-11
+
+### Added
+
+- `prodops/framework/product-deck.md` + `.en.md` — canonical Product Deck artifact
+  definition distributed as a framework file. Previously referenced in glossary and
+  artifact-types (v1.4.0) but not distributed to consumers.
+- `prodops/framework/service-deck.md` + `.en.md` — canonical Service Deck artifact
+  definition distributed as a framework file. Same promotion path as product-deck.
+
+### Changed
+
+- `prodops/scripts/install-prodops.sh` — complete rewrite. Now runs all installation
+  steps autonomously in a single command:
+  - Step 9: configures `git config core.hooksPath` automatically; detects non-git repos
+  - Step 10: calls `install-claude.sh` to set up `.claude/` structure
+  - Step 11: generates `CLAUDE.md` with canonical agent instruction template
+  - Step 12: generates `AGENTS.md` with full work-reception protocol, journey table,
+    and pre-authorized permissions for subagents
+  - Step 13: runs `doctor.sh` and surfaces only `FAIL:` lines
+  - Step 14: runs `validate-manifest.sh` (skips automatically when placeholders remain)
+  - Adds colored terminal output: section headers, per-step `[OK]` / `[SKIP]` / `[WARN]`
+  - Collects warnings and pending manual steps; prints actionable summary at the end
+  - New flags: `--skip-hooks`, `--skip-claude`
+
+---
+
+## [1.4.0] — 2026-08-07
+
+### Added
+
+- `prodops/framework/artifact-types.md` / `.en.md` — sections for Product Deck and
+  Service Deck artifacts (canonical path, relations, journeys)
+- `prodops/framework/glossary.md` / `.en.md` — definitions for Product Deck and
+  Service Deck (when to use, relations, location)
+- `prodops/framework/README.md` / `.en.md` — artifact table updated with Product Deck
+  and Service Deck entries
+
+### Changed
+
+- `prodops/runtime/tools/emit-event/scripts/emit-event` — auto-loads `DD_API_KEY`
+  from `api/.env` if not set in the environment, eliminating silent metric emission
+  failures in local development
+
+---
+
+## [1.3.0] — 2026-08-06
+
+### Changed
+
+- `prodops/scripts/install-prodops.sh` — generalized install flow; removed
+  product-specific references from generated templates
+- `prodops/scripts/doctor.sh` — fixed false positives on optional paths
+
+---
+
+## [1.2.0] — 2026-08-06
+
+### Added
+
+- `prodops/scripts/install-prodops.sh` — new installation script: clones framework at
+  a specified version, creates directory structure, generates `manifest.yaml` and
+  `framework-lock.yaml` templates, creates `.prodopsignore`, seeds `artifacts/` tree
+- `prodops/scripts/install-claude.sh` — installs `.claude/` structure (skills, agents,
+  `settings.json`) into any consumer repository
+- `prodops/scripts/sync-from-framework.sh` — manual sync script for consumers to pull
+  framework updates as a PR
+
+---
+
+## [1.1.0] — 2026-08-05
+
+### Added
+
+- `prodops/runtime/` — Reference Implementation (RI) of the ProdOps delivery runtime,
+  validated with Datadog and GitHub integrations. Consumers copy `runtime.yaml.example`,
+  fill in their config, and extend in their own repo.
+  - `catalog/events.yaml` — 47-event canonical catalog covering Delivery and Diligence journeys
+  - `consumer/` — `derive-state.sh`, `derive-diligence-state.sh`
+  - `datadog/` — `send.sh` (metrics publisher), `runtime-dashboard.json`, `dashboards/v3.4.0.json`
+  - `dispatcher/` — `dispatch.sh` (subscription router), `trail.sh` (GitHub trail comments)
+  - `docs/contract.md` — CloudEvent contract reference
+  - `github/sync.sh` — idempotent GitHub Project v2 field sync
+  - `producer/emit.sh` — CloudEvent factory
+  - `subscriptions/delivery-diligence.yaml` — canonical subscription declarations
+  - `timeline/append.sh` — append-only CloudEvent timeline writer
+  - `tools/emit-event/` — complete 5-step CLI tool with JSON-in/JSON-out contract,
+    unit tests (01–10), chain tests, and cross-player conformance test suite
+  - `tools/restart-feature/` — non-destructive Delivery Journey restart tool
+  - `scripts/` — `validate-event.sh`, `runtime-doctor.sh`, `project-cleanup.sh`,
+    `create-github-views.sh`
+  - `runtime.yaml.example` — consumer configuration template
+
+### Changed (RI generalization)
+
+- `datadog/send.sh`: removed `../api/.env` credential fallback; `DD_API_KEY` must
+  be set as an environment variable
+- `scripts/runtime-doctor.sh`: same credential change; removed `EXP-013` experiment
+  label from banner
+- `dispatcher/trail.sh`: translated all 13 event message templates from Portuguese
+  to English; removed hardcoded branch name from sync message
+- `tools/emit-event/scripts/emit-event`: removed hardcoded `"experiment":"EXP-015"`
+  from evidence `_meta` block
+- `tools/restart-feature/scripts/restart-feature`: added `--iteration-id` parameter;
+  removed three hardcoded `"IP-EXP016-F03-RESTART"` iteration ID values
+
+---
+
+## [1.0.0] — 2026-08-05
+
+### Breaking changes
+
+- Removed duplicate root-level layout (`framework/`, `journeys/`, `skills/`,
+  `templates/`, `execution-model/`). All canonical content now lives under `prodops/`.
+- Removed product-specific experiments leaked from `payments-api`
+  (`journeys/discovery/experiments/001–007`).
+
+### Added
+
+- `prodops/framework/artifact-types.md` + `.en.md` — canonical artifact type reference
+- `prodops/framework/principles.md` + `.en.md` — 11 canonical ProdOps principles
+- `prodops/framework/ontology.md` + `.en.md` — framework ontology
+- `prodops/framework/positioning.md` — framework positioning document
+- `prodops/skills/diligence/` — full Diligence Sync, Diligence Async, Workspace Reconciliation
+- `prodops/skills/upstream/steps/deploy-to-sandbox/` — sandbox deploy step
+- `consumers.yaml` — consumer registry for CI propagation
+
+### Structure
+
+```
+prodops-framework/
+  prodops/
+    framework/     ← canonical framework docs
+    skills/        ← canonical skills
+    templates/     ← canonical templates
+    scripts/       ← doctor.sh, validate-manifest.sh, validate-export-manifest.sh
+  LICENSE
+  README.md / README.en.md
+  CHANGELOG.md
+  consumers.yaml
+```
+
+---
+
+## [0.1.0] — 2026-08-04
+
+Initial export from `payments-api` empirical upstream via `export-framework.sh`.
+Established base structure for framework distribution.

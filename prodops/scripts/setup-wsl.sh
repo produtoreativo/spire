@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # setup-wsl.sh — Bootstrap completo de ambiente de desenvolvimento ProdOps
-# ProdOps Framework v1.14.1
+# ProdOps Framework v2.1.0
 #
 # Contextos de execução detectados automaticamente:
 #
@@ -22,7 +22,7 @@
 #   0  sucesso (ou Ubuntu instalado e aguardando re-execução)
 #   1  erro fatal ou SO não suportado
 
-PRODOPS_VERSION="v1.14.1"
+PRODOPS_VERSION="v2.11.0"
 
 # ── Cores e helpers ────────────────────────────────────────────────────────────
 
@@ -634,15 +634,29 @@ echo -e "${BOLD}═════════════════════�
 echo ""
 echo "  Repositório : ${CLONE_DIR}"
 echo ""
-echo "  Próximos passos:"
-echo "    cd ${CLONE_DIR}"
-if ! already docker || ! docker info >/dev/null 2>&1; then
-  echo "    # Configure Docker Desktop com integração WSL2 antes de rodar:"
-  echo "    #   Settings → Resources → WSL Integration → Enable for this distro"
-fi
-echo "    npm run local:start   # sobe LocalStack"
-echo "    npm test              # roda os testes"
+echo "  ┌──────────────────────────────────────────────────────────────────┐"
+echo "  │  INSTRUÇÕES PARA O AGENTE CLAUDE CODE                           │"
+echo "  │  Execute cada passo via Bash tool na ordem indicada.            │"
+echo "  │  Verifique o critério de sucesso antes de avançar.              │"
+echo "  └──────────────────────────────────────────────────────────────────┘"
 echo ""
-echo "  Para rediagnosticar:"
-echo "    bash prodops/scripts/check-env.sh --fix-hints"
+echo "  [1] Entrar no repositório"
+echo "      cd ${CLONE_DIR}"
+echo ""
+if ! already docker || ! docker info >/dev/null 2>&1; then
+echo "  [2] Verificar Docker daemon (inativo — necessário para LocalStack)"
+echo "      docker info"
+echo "      # Se falhar: Docker Desktop para Windows não está rodando ou"
+echo "      #   integração WSL2 não está habilitada para esta distro."
+echo "      # Verificar integração WSL2 (lê settings do Docker Desktop):"
+echo "      cat /mnt/c/Users/\$(cmd.exe /c 'echo %USERNAME%' 2>/dev/null | tr -d '\r')/AppData/Roaming/Docker/settings.json 2>/dev/null | python3 -c \"import sys,json; s=json.load(sys.stdin); print('WSL2 OK' if s.get('wslEngineEnabled') else 'Habilitar WSL2 no Docker Desktop: Settings → Resources → WSL Integration')\""
+echo "      # Se Docker Desktop não estiver aberto:"
+echo "      cmd.exe /c 'start \"\" \"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\"' 2>/dev/null"
+echo "      until docker info >/dev/null 2>&1; do sleep 5; done && echo 'Docker pronto'"
+echo "      # Critério: 'Docker pronto' aparece no output (pode levar até 60s)"
+echo ""
+fi
+echo "  [D] Diagnóstico (executar se qualquer passo acima falhar)"
+echo "      bash prodops/scripts/check-env.sh --fix-hints"
+echo "      # Reportar ao usuário cada item com status FALHOU ou ATENÇÃO"
 echo -e "${BOLD}══════════════════════════════════════════════════════════════════${RESET}"

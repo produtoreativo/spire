@@ -1,93 +1,117 @@
-# spire — Guia do Agente
+# ProdOps Framework — Guia do Agente
 
-## AÇÃO OBRIGATÓRIA — execute antes de responder qualquer mensagem
-
-Este repositório usa o **ProdOps Framework**. Você **não tem contexto suficiente**
-para classificar ou executar nenhum pedido sem ler os arquivos abaixo.
-
-**Leia agora, nesta ordem, antes de responder:**
-
-```
-1. prodops/exec/manifest.yaml
-2. prodops/framework/principles.md
-3. prodops/README.md
-```
-
-Não pule essa etapa. Não responda ao usuário antes de completar essas leituras.
-Se qualquer um dos arquivos não existir, informe e aguarde instrução.
-
-Após as leituras, use o protocolo de recebimento de trabalho abaixo.
-Nas etapas seguintes da mesma sessão, não releia — o contexto já está estabelecido.
-
-## Permissões pré-autorizadas para subagentes
-
-Todas as operações abaixo estão pré-autorizadas pelo operador para esta sessão.
-Subagentes **não devem pausar para solicitar confirmação** dessas operações:
-
-- **Read** — qualquer arquivo do repositório, incluindo:
-  - `prodops/artifacts/bdd/*.feature`
-  - `prodops/artifacts/obcs/*.md`
-  - `prodops/runtime/**`
-  - `prodops/skills/**`
-  - `prodops/framework/**`
-- **Bash** — comandos de leitura, git local, gh CLI e scripts do runtime, conforme
-  prescrito pelas Skills.
+> **Este repositório é o framework canônico** (`produtoreativo/prodops-framework`).
+> As mudanças chegam via PR de export do upstream empírico (`payments-api`).
+> Não edite scripts canônicos diretamente aqui — as mudanças pertencem ao upstream.
 
 ---
 
-## Protocolo de recebimento de trabalho
+## Setup de um Repo Novo
 
-**Antes de qualquer ação**, classificar o pedido e propor a jornada adequada.
-Nunca iniciar implementação, refatoração, correção ou criação de artefatos sem
-passar por este protocolo — independentemente de quem solicita ou como.
+**Após instalar o ProdOps via `install-prodops.sh`, o primeiro skill a invocar é `/setup`.**
 
-### Passo 0 — Classificar o trabalho
+O skill `/setup` orquestra automaticamente o setup completo:
+1. Preenche os placeholders `YOUR_*` no `runtime.yaml` (infere do remote origin)
+2. Provisiona os 38 labels canônicos no repo GitHub
+3. Cria o GitHub Project via `/provision` (cópia do template canônico)
+4. Configura o `.env` a partir do `.env.example`
+5. Valida que o repo está 100% pronto para qualquer fluxo
 
-| Tipo de pedido | Jornada | Skill de entrada |
-|---|---|---|
-| Nova feature, endpoint, comportamento de negócio | **Delivery** | `/downstream` |
-| Correção de bug com impacto em contrato ou comportamento | **Delivery** | `/downstream` |
-| Atualização de dependência com impacto em runtime | **Delivery** | `/downstream` |
-| Correção de vulnerabilidade de segurança | **Delivery** | `/downstream` |
-| Investigação, descoberta, análise técnica | **Upstream** | `/upstream` |
-| Auditoria, risco, conformidade, sinal de negócio | **Diligence** | `/diligence` |
-| Pergunta, explicação, leitura de código | nenhuma jornada | responder diretamente |
-
-### Passo 1 — Verificar artefatos de produto
-
-Para pedidos do tipo **Delivery**, antes de propor execução, verificar:
-
-1. Existe OBC em `prodops/artifacts/obcs/<capability>.md`?
-2. Existe BDD Feature em `prodops/artifacts/bdd/<capability>.feature`?
-3. Risco documentado em `prodops/artifacts/risks/risks.md`?
-4. Item no Iteration Plan com status `Entrou`?
-
-### Passo 2 — Propor, não executar
-
-Apresentar ao operador:
-
-```
-Jornada identificada: <Delivery | Upstream | Diligence>
-Skill de entrada: <skill>
-Artefatos presentes: <lista>
-Artefatos ausentes: <lista — bloqueia readiness>
-Próxima ação proposta: <descrição>
+```bash
+# Sequência completa de setup:
+./prodops/scripts/install-prodops.sh --version v2.15.0
+# (após instalação)
+/setup
 ```
 
-Aguardar confirmação **exceto** quando o pedido já invocou explicitamente um
-skill (`/downstream`, `/upstream`, `/hack`, etc.) — nesse caso executar
-diretamente sem parar para propor.
+O `/setup` é **idempotente** — pode ser re-executado sem risco em qualquer estágio.
 
-### Passo 3 — Executar via skill
-
-Após confirmação, executar exclusivamente via skill correspondente.
-Nunca implementar código de produção fora do ciclo Bootstrap → Hack → Sync → Finish.
+→ [Skill /setup](prodops/skills/setup/SKILL.md)
+→ [Skill /provision](prodops/skills/provision/SKILL.md)
 
 ---
 
-## Como trabalhar
+## ⚠️ REGRA CRÍTICA — VERSÃO DO RUNTIME ACOMPANHA O FRAMEWORK
 
-1. **Trabalho de Delivery:** invoque o skill da fase — `/bootstrap`, `/hack`,
-   `/sync`, `/finish`, `/ship`, `/validate`, `/promote`.
-2. **Exploração:** `/upstream`. **Implementação governada:** `/downstream`.
-3. **Paths canônicos, quality gates e vocabulário:** `prodops/exec/manifest.yaml`
+**Toda vez que o número de versão do framework for incrementado, os seguintes
+arquivos DEVEM ser atualizados para o mesmo valor — sem exceção:**
+
+| Arquivo | Campo a atualizar |
+|---|---|
+| `prodops/scripts/setup-wsl.sh` | `PRODOPS_VERSION="vX.Y.Z"` |
+| `prodops/scripts/setup-mac.sh` | `PRODOPS_VERSION="vX.Y.Z"` |
+| `prodops/runtime/runtime.yaml.example` | `framework-version: "vX.Y.Z"` |
+| `CHANGELOG.md` | entrada para a nova versão |
+
+O gate `prodops/scripts/validate-export-manifest.sh` falha automaticamente se
+`PRODOPS_VERSION` em qualquer script divergir da versão em `framework-lock.yaml`.
+
+> **Nota:** `framework-lock.yaml` é gerado pelo processo de export a partir de `payments-api`
+> e **não faz parte do estado commitado deste repositório**. A ausência do arquivo na árvore
+> de trabalho é comportamento esperado — não é uma inconsistência. O gate só é executado
+> durante o fluxo de export, quando o arquivo existe.
+
+**Cheque estes arquivos antes de aprovar qualquer PR de export.**
+
+---
+
+## Regra de classificação de modo para agentes
+
+Ao trabalhar neste repositório, o agente deve inferir o modo correto a partir do estado dos artefatos — não de labels subjetivos:
+
+| Estado do OBC | Modo inferido |
+|---|---|
+| CommitmentGate registrado com outcome Promover ou Promover com restrição (OBC em Refining ou Readiness) | **Downstream** |
+| Sem CommitmentGate registrado (OBC em Draft) | **Upstream** |
+| OBC ausente | Pré-Business Intent ou Finding de Diligence — não é classificação de modo válida |
+
+**Dois modos de falha de agente a evitar:**
+
+- **Rigor máximo indiscriminado:** tratar tudo como Downstream, aplicar Gates onde não cabem, bloquear exploração ao exigir OBC Readiness durante hipótese. Sintoma: agente pergunta "onde está o OBC Committed?" durante um experimento Upstream.
+- **Permissividade total:** tratar tudo como Upstream, avançar sem Gates, implementar sem verificar se OBC está em Readiness ou se BDD existe. Sintoma: agente executa Bootstrap sem verificar as 5 pré-condições do Downstream Ready.
+
+Quando o modo for ambíguo, o agente deve perguntar ao usuário — não assumir.
+
+---
+
+## Protocolo de review de PR de export
+
+Todo PR de export vem de `payments-api` via `export-framework.sh`. Ao revisar:
+
+1. Confirmar que `PRODOPS_VERSION` em `setup-wsl.sh` = versão do PR
+2. Confirmar que `PRODOPS_VERSION` em `setup-mac.sh` = versão do PR
+3. Confirmar que `CHANGELOG.md` tem entrada para a versão exportada
+4. Confirmar que nenhum arquivo product-specific vazou:
+   - `prodops/artifacts/**` → nunca deve aparecer
+   - `prodops/exec/**` → nunca deve aparecer
+5. Aprovar e fazer merge
+
+---
+
+## Estrutura do repositório
+
+```
+prodops-framework/
+  prodops/
+    framework/     ← documentação canônica do framework
+    skills/        ← skills canônicas (bootstrap, hack, sync, finish, ship...)
+    templates/     ← templates canônicos
+    scripts/       ← scripts de instalação e validação
+    runtime/       ← Reference Implementation (RI) do runtime
+  AGENTS.md        ← este arquivo (gerenciado pelo upstream via export)
+  CLAUDE.md        ← instrução para Claude Code (gerenciado via export)
+  CHANGELOG.md     ← histórico de versões
+  consumers.yaml   ← registry de consumidores para propagação de CI
+```
+
+---
+
+## O que pode ser editado diretamente neste repo
+
+- `consumers.yaml` — registrar/remover consumidores do framework
+- `CHANGELOG.md` — notas editoriais após um merge de export (raramente)
+- `README.md`, `README.en.md` — documentação geral do framework
+
+**Nunca editar diretamente:** `prodops/scripts/*.sh`, `prodops/skills/**`,
+`prodops/framework/**`, `prodops/runtime/**`. Essas mudanças pertencem ao
+upstream empírico (`payments-api`) e chegam aqui via export.

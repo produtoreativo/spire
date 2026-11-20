@@ -8,6 +8,27 @@ This document establishes the most fundamental architectural principle of the Pr
 
 All other documentation must be read and written in light of this principle.
 
+---
+
+## Canonical Operational Representation
+
+> **GitHub (Projects and Issues) is the Canonical Operational Representation of the ProdOps Framework.**
+> There is no abstraction layer for other tools. Jira, Azure DevOps, Linear, and similar tools are optional syncs — never equivalents or substitutes.
+
+**Canonical Operational Representation** is the operational materialization of the ProdOps conceptual model. At the current stage of the Framework, this representation is implemented through GitHub Projects and GitHub Issues.
+
+Each **GitHub Project** operationally represents a **Journey or specific operational domain** — not the Framework as a whole. The Framework may have multiple canonical Projects (e.g.: Diligence, Product Lifecycle, Operations), each covering the scope of its Journey.
+
+| GitHub Element | Role within ProdOps |
+|---|---|
+| **GitHub Project** | Canonical operational representation of a Journey or operational domain — each Project organizes and projects Work Items within a specific scope |
+| **GitHub Issue** | Work Item — represents an active operation on artifacts in the Knowledge Space |
+| **View** | Canonical projection of Issue state within a Project, by Journey, Phase, or Operation |
+| **Field** | Operational state required to correctly project each Work Item |
+| **Label** | Auxiliary classification — **never** the source of truth for state |
+
+Documentation in `prodops/` represents the **conceptual model**. GitHub represents the **operational model** (Canonical Operational Representation). The **Diligence** journey is the guardian that keeps both synchronized and consistent.
+
 → [Operating Model](operating-model.en.md)
 → [Backlog Hierarchy](backlogs.en.md)
 → [Framework Flow](flow.en.md)
@@ -86,7 +107,7 @@ Not every document in the repository is a Knowledge Space artifact.
 
 An artifact:
 - **has permanent identity** — a `slug` or ID that persists throughout its entire lifecycle;
-- **has its own state** — Draft, Refining, Committed, In Delivery, Operational, Archived;
+- **has its own state** — Draft, Refining, Readiness, In Delivery, Released, Archived;
 - **is never replaced by tools** — GitHub Issues, Jira cards, and ADO work items are temporary reflections of work, not the artifact itself;
 - **is the source of truth** — any divergence between the Markdown file and a tool representation must be resolved in favor of the Markdown file.
 
@@ -195,7 +216,7 @@ OBC feature-name-v2
        → operation: Refine
        → journey: Discovery
        → closes when BDD is complete
-       → OBC continues to exist, now in Committed state
+       → OBC continues to exist, now in Readiness state
 ```
 
 ```
@@ -266,7 +287,7 @@ Diligence does not create Issues "for" artifacts. It creates Issues when **ident
 | Error | Why it's wrong | How to correct |
 |---|---|---|
 | "The OBC is in Issue #234" | The OBC is a Markdown file. The Issue is work on the OBC. | "Issue #234 records refinement work on OBC `feature-name-v2`" |
-| "Close the Issue when the OBC is Committed" | OBC state is independent of Issue state | "Close the Issue when the refinement work is complete. The OBC reaches Committed when its minimum criteria are satisfied." |
+| "Close the Issue when the OBC is Readiness" | OBC state is independent of Issue state | "Close the Issue when the refinement work is complete. The OBC reaches Readiness when its minimum criteria are satisfied." |
 | "Create an Issue for each Business Intent" | A Business Intent can have dozens of Issues over its lifetime | "Create Issues for specific operations on the Intent: Discovery, Review, Update OBC, etc." |
 | "GitHub Project contains Business Signals" | The Project contains Work Items. Signals are artifacts in files. | "GitHub Project contains Work Items about Business Signals" |
 | "Business Intent Issue #42" | Names the Issue after the artifact, establishing 1:1 | "Issue: 'Discovery — BI-042 Payment split support'" |

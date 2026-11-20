@@ -139,11 +139,46 @@ Os estados representam **maturidade do contrato**, não estado do software.
 | Estado | Quando | Descrição |
 |---|---|---|
 | **Draft** | BIB / Product Backlog — entrada | Criado; pode estar incompleto; registra intenção inicial e hipóteses |
-| **Refining** | Product Backlog — view Icebox | Em refinamento ativo; Discovery/Upstream podem estar ocorrendo |
-| **Committed** | Product Backlog — view Iteration Backlog | Informações mínimas validadas; pronto para Delivery |
+| **Refining** | Product Backlog — view Icebox | Em refinamento ativo; a jornada Discovery pode estar em andamento (no modo Upstream ou Downstream) |
+| **Readiness** | Product Backlog — view Iteration Backlog | Certifica que a Discovery Downstream produziu contrato completo e verificável por terceiros; pronto para Delivery |
 | **In Delivery** | Iteration Plan → Delivery | Em execução; implementação em andamento |
-| **Operational** | Operation | Em produção; atualizado com evidências operacionais |
+| **Released** | Operation | Em produção; atualizado com evidências operacionais |
 | **Archived** | — | Intenção encerrada; histórico preservado |
+
+### Views e sub-estados operacionais
+
+Além dos estados permanentes, o OBC pode estar identificado por **views operacionais** que descrevem seu contexto no ciclo de exploração/entrega:
+
+| View / Sub-estado | Quando | Descrição |
+|---|---|---|
+| **Icebox** | OBC Draft ou Refining sem modo declarado | Item aceito no PIB mas ainda não teve Execution Mode definido pelo Product Owner |
+| **Upstream: In Hypothesis** | OBC Draft — hipótese em formação | Experimento ainda não aberto formalmente; hipótese sendo estruturada |
+| **Upstream: Evidence Running** | OBC Draft — código rodando sem compromisso | Sandbox Deploy ou Produção Controlada ativo; evidência sendo coletada |
+| **Downstream Declared** | OBC Refining — imediatamente após CommitmentGate Promover (Momento 1) | Compromisso declarado; item entra no Icebox para refinamento com rigor bloqueante |
+| **Downstream Ready** | OBC Readiness — após Readiness Gate (Momento 3) | Contrato completo e verificável; BDD em `prodops/artifacts/bdd/`; pronto para Bootstrap |
+| **Delivery Started** | OBC In Delivery — a partir de Bootstrap.Started | Implementação em execução no CI Sync |
+
+Essas views não substituem os estados permanentes — elas descrevem o ponto operacional dentro de um estado. Um OBC em `Downstream Declared` está no estado `Refining`; um OBC em `Downstream Ready` está no estado `Readiness`.
+
+---
+
+> **Direção causal:** Os estados do OBC não determinam o modo nem produzem o compromisso — eles tornam o compromisso observável. O que faz um OBC transitar entre estados é a satisfação de critérios que refletem o grau de maturidade do compromisso vigente. **O modo é a causa; os estados são o registro verificável.** Mudar o estado do OBC não muda o modo; o modo já existe antes do estado refletir isso.
+
+### Transições de estado canônicas
+
+```
+[*] → Draft              (Business Signal → Business Intent)
+Draft → Refining         (CommitmentGate outcome Promover — Momento 2)
+Refining → Readiness     (Readiness Gate aprovado — Momento 3)
+Readiness → In Delivery  (Bootstrap.Started)
+In Delivery → Released (Promote concluído)
+Released → Archived   (Deprecação ou substituição)
+Draft → Archived           (CommitmentGate outcome Descartar)
+Refining → Draft           (pré-condição de Descartar quando OBC está em Refining: redraft formal registra aprendizado antes de arquivar)
+In Delivery → Refining   (Regressão Downstream → Upstream: hipótese invalidada durante Delivery)
+```
+
+A transição `In Delivery → Refining` é uma suspensão formal de compromisso — não um retorno a uma etapa anterior. Requer dois registros obrigatórios: entrada no Release Trail e abertura de novo experimento Upstream referenciando o OBC original. Ver [Protocolo de Regressão](execution-model/downstream.md#protocolo-de-regressão-downstream--upstream).
 
 ---
 
@@ -159,7 +194,7 @@ Os estados representam **maturidade do contrato**, não estado do software.
 | BIB — view Platform Release | Draft | Item agrupado em versão de plataforma |
 | Discovery (BIB) | Refining | Exploração refina o Global OBC; hipóteses testadas |
 | Particionamento do OBC | Refining | Local OBCs criados; rastreabilidade estabelecida |
-| Operation | Operational | Atualizado com evidências consolidadas de todos os produtos |
+| Operation | Released | Atualizado com evidências consolidadas de todos os produtos |
 | — | Archived | Intenção encerrada |
 
 ### Local OBC
@@ -168,10 +203,10 @@ Os estados representam **maturidade do contrato**, não estado do software.
 |---|---|---|
 | Particionamento do OBC | Draft | Local OBC criado com referência ao Global OBC |
 | Product Backlog — view Icebox | Refining | Discovery refina o Local OBC; critérios emergem |
-| Assessment Review | Candidato a Committed | OBC revisado por PM + Tech Lead; seções obrigatórias validadas |
-| Product Backlog — view Iteration Backlog | Committed | Critérios mínimos validados; Downstream pode iniciar |
+| Assessment Review | Candidato a Readiness | OBC revisado por PM + Tech Lead; seções obrigatórias validadas |
+| Product Backlog — view Iteration Backlog | Readiness | Critérios validados; contrato completo e verificável; Downstream pode iniciar |
 | Iteration Plan / Delivery | In Delivery | Guia a implementação; BDD Feature o operacionaliza |
-| Operation | Operational | Em produção; complementado com métricas, SLOs, incidentes |
+| Operation | Released | Em produção; complementado com métricas, SLOs, incidentes |
 | — | Archived | Intenção encerrada |
 
 O OBC registra o **histórico vivo do trabalho**: por quais estados passou, quando, decisões tomadas, como os critérios evoluíram, referências a experimentos e riscos.
@@ -227,10 +262,10 @@ OBCs produzidos dentro de experimentos Upstream permanecem no diretório do expe
 
 ## OBC no Downstream
 
-Ao entrar no Downstream, o Local OBC deixa de ser apenas um registro — passa a ser o contrato operacional da entrega. É refinado no Icebox até atingir o estado Committed, então controla toda a evolução das jornadas seguintes.
+Ao entrar no Downstream, o Local OBC deixa de ser apenas um registro — passa a ser o contrato operacional da entrega. É refinado no Icebox até atingir o estado Readiness, então controla toda a evolução das jornadas seguintes.
 
 O compromisso pode ser declarado antes da prontidão. O conjunto mínimo exigido para atingir **Downstream Ready** e iniciar uma fase de Delivery é:
-- Local OBC committed em `prodops/artifacts/obcs/<slug>.md` com estado Committed
+- Local OBC em estado Readiness em `prodops/artifacts/obcs/<slug>.md`
 - BDD Feature committed em `prodops/artifacts/bdd/<slug>.feature`
 - Riscos documentados e item `Entrou` no Iteration Plan
 - Reliability Plan atualizado quando houver movimentação financeira, integração externa, mudança de SLO, risco alto/crítico ou alteração de persistência ou segurança
@@ -255,7 +290,7 @@ Todas as Skills do Downstream utilizam o Local OBC como principal fonte de conte
 | **Quem modifica** | Portfolio PM, Tech Leads (com registro de mudanças) |
 | **Quem aprova** | Portfolio PM |
 | **Consumidores** | Local OBCs, Particionamento do OBC, Roadmap, Platform Release |
-| **Ciclo de vida** | Draft → Refining → Operational → Archived |
+| **Ciclo de vida** | Draft → Refining → Released → Archived |
 | **Jornadas** | Discovery (BIB), Operation |
 
 ### Local OBC
@@ -268,7 +303,7 @@ Todas as Skills do Downstream utilizam o Local OBC como principal fonte de conte
 | **Quem modifica** | Product Manager, Tech Lead, engenheiros (com registro de mudanças) |
 | **Quem aprova** | Product Manager + Tech Lead (Assessment Review) |
 | **Consumidores** | Delivery, Reliability Plan, BDD Feature, Release Trail, Iteration Plan |
-| **Ciclo de vida** | Draft → Refining → Committed → In Delivery → Operational → Archived |
+| **Ciclo de vida** | Draft → Refining → Readiness → In Delivery → Released → Archived |
 | **Jornadas** | Discovery, Delivery, Operation, Assessment, Diligence |
 
 ---
@@ -300,3 +335,8 @@ Não usar OBC como substituto de tarefa técnica isolada ou ticket de bug sem Bu
 → [Fases: Concepção e Inception](phases.md)
 → [Jornada Discovery](journeys/discovery/README.md)
 → [Reliability Plans](../artifacts/plans/reliability/README.md)
+
+
+---
+
+→ **Próximo:** [Tipos de Artefatos](artifact-types.md)

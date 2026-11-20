@@ -401,6 +401,8 @@ Timeline(W) ──read-only──► Assessment Consumer
                               └── não emite eventos
 ```
 
+> **Regra: Assessment não escreve em Timelines.** Os Timelines são registros append-only produzidos exclusivamente pelas jornadas clássicas (Discovery, Delivery, Operation). O Assessment lê os Timelines para detectar desvios; nunca os modifica. Essa restrição não é técnica — é epistemológica: o Assessment preserva sua função de observador independente ao não participar da produção dos registros que analisa.
+
 ### 8.2 Uso de Derived State
 
 A Assessment usa Derived State para entender o estado atual de conjuntos de Work Items:
@@ -503,3 +505,8 @@ pode ter sua própria Timeline para registrar ciclos formalmente via OEM.
 - [Delivery Journey](../delivery/README.md)
 - [Diligence Journey](../diligence/README.md)
 - Cross-Journey Event Analysis
+
+
+---
+
+→ **Próximo:** [Jornada Diligence](../diligence/README.md)
