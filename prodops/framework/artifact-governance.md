@@ -76,7 +76,7 @@ Product Backlog               ← Local OBC Draft nasce aqui se ainda não exist
 Product Backlog
   ↓ VIEW Icebox — Discovery
 Icebox [VIEW]
-  ↓ OBC Committed
+  ↓ OBC Readiness
 Iteration Backlog [VIEW]
   ↓ OBC committed + BDD committed
 Iteration Plan
@@ -192,9 +192,9 @@ Operation
 | **Quem modifica** | Product Team (Product Manager, Tech Lead, engenheiros) |
 | **Quem aprova** | Product Owner + Tech Lead (para saída do Icebox) |
 | **Consumidores** | Iteration Backlog |
-| **OBC** | Refining (Discovery); atinge Committed ao sair |
+| **OBC** | Refining (Discovery); atinge Readiness ao sair |
 | **Critério de entrada** | Local OBC transitioning de Draft para **Refining** — início do Discovery ativo |
-| **Critério de saída** | OBC Committed → Iteration Backlog |
+| **Critério de saída** | OBC Readiness → Iteration Backlog |
 | **Jornadas** | Discovery (Downstream), Assessment |
 
 ### Iteration Backlog
@@ -202,13 +202,13 @@ Operation
 | Campo | Valor |
 |---|---|
 | **Owner** | Product Owner |
-| **Onde nasce** | Product Repository — item com OBC Committed saindo do Icebox |
+| **Onde nasce** | Product Repository — item com OBC Readiness saindo do Icebox |
 | **Artefato canônico** | `prodops/artifacts/product/backlogs/iteration-backlog.md` |
 | **Quem modifica** | Product Owner, Diligence |
 | **Quem aprova** | Product Owner (priorização) |
 | **Consumidores** | Iteration Plan |
-| **OBC** | Committed |
-| **Critério de entrada** | OBC Committed + Discovery funcional, técnico e operacional suficiente + Riscos identificados |
+| **OBC** | Readiness |
+| **Critério de entrada** | OBC Readiness + Discovery funcional, técnico e operacional suficiente + Riscos identificados |
 | **Critério de saída** | OBC committed + BDD Feature committed + entrada no Iteration Plan |
 | **Jornadas** | Diligence, Assessment |
 
@@ -235,9 +235,9 @@ Operation
 | **Onde nasce** | Business Intent Backlog (fluxo global) ou Product Backlog (fluxo local) |
 | **Artefato canônico** | `prodops/artifacts/obcs/<slug>.md` (quando committed) |
 | **Quem modifica** | Product Manager, Tech Lead, engenheiros (com registro de mudanças) |
-| **Quem aprova** | Product Manager + Tech Lead (Assessment Review) |
+| **Quem aprova** | Trio PM + Tech Lead + Autor (CommitmentGate) · PM + Tech Lead (Readiness Gate) |
 | **Consumidores** | Delivery, Reliability Plan, BDD Feature, Release Trail, Iteration Plan |
-| **Ciclo de vida** | Draft → Refining → Committed → In Delivery → Operational → Archived |
+| **Ciclo de vida** | Draft → Refining → Readiness → In Delivery → Released → Archived |
 | **Jornadas** | Discovery, Delivery, Operation, Assessment, Diligence |
 
 ### Reliability Plan
@@ -269,7 +269,7 @@ Operation
 | Icebox (VIEW) | Product Owner | Product Team | PO + Tech Lead | VIEW Iteration Backlog |
 | Iteration Backlog (VIEW) | Product Owner | PO + Diligence | Product Owner | Iteration Plan |
 | Iteration Plan | Tech Lead / PO | Equipe de Delivery | PO + Tech Lead | Delivery, Release Trail |
-| OBC | PM + Tech Lead | PM, TL, engenheiros | PM + Tech Lead (Assessment Review) | Delivery, BDD, Release Trail |
+| OBC | PM + Tech Lead | PM, TL, engenheiros | Trio (CommitmentGate) · PM + TL (Readiness Gate) | Delivery, BDD, Release Trail |
 | Reliability Plan | Tech Lead + SRE | TL, SRE, engenheiros | TL + PO | Iteration Plan, Delivery |
 | BDD Feature | Tech Lead | PM, TL, engenheiros | Tech Lead | Hack, testes, Release Trail |
 | Release Trail | Delivery team | Equipe de Delivery (append-only) | — | Operation, retrospectivas |
@@ -282,3 +282,8 @@ Operation
 → [OBC: ciclo de vida completo](glossary.md#obc-observable-business-contract)
 → [Modelo operacional](operating-model.md)
 → [Fluxo oficial](flow.md)
+
+
+---
+
+→ **Próximo:** [Origin Streams](origin-streams.md)

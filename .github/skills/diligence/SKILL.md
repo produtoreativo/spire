@@ -6,7 +6,7 @@ description: Synchronize OBC state across backlogs and tools. Runs event-driven 
      Source:    prodops/skills/diligence/SKILL.md
      Player:    copilot
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:04Z
+     Generated: 2026-10-01T20:00:49Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill diligence
 -->
 
@@ -56,7 +56,7 @@ Quando invocado com argumento de step (`/diligence diligence-sync capture`), exe
 1. **Capture** — criar ou atualizar o OBC a partir da decisão que acionou o ciclo. Estado canônico apenas no Markdown.
 2. **Attach** — verificar ou criar o Work Item referenciando o OBC no backlog externo.
 3. **Promote** — avançar o item pela hierarquia de backlogs verificando pré-requisitos em cada transição.
-4. **Close** — fechar o Work Item quando o OBC atinge estado Operational.
+4. **Close** — fechar o Work Item quando o OBC atinge estado Released.
 
 Parar em qualquer bloqueio. Registrar o artefato ausente, a jornada responsável e a ação concreta antes de parar.
 
@@ -98,7 +98,7 @@ Invocável pelo usuário (`/diligence workspace-reconciliation`) e pelos ciclos 
 ### Guardrails de Workspace Reconciliation
 
 - **Workspace Reconciliation é um command** — invocável diretamente pelo usuário com `/diligence workspace-reconciliation` ou pelos ciclos (Bootstrap, Async, Sync).
-- **Automation First (Princípio 8)** — tentar API → MCP → CLI → SDK → Browser Automation antes de declarar impossibilidade. Nunca instruir o usuário a executar ações manualmente sem antes demonstrar que todas as opções de automação foram esgotadas. Ver [automation-first.md](../../framework/automation-first.md).
+- **Automation First (Princípio 8)** — tentar API → MCP → CLI → SDK → Browser Automation antes de declarar impossibilidade. Nunca instruir o usuário a executar ações manualmente sem antes demonstrar que todas as opções de automação foram esgotadas. Ver [automation-first.md](../../../prodops/framework/automation-first.md).
 - **Nenhum gap sem Issue de rastreamento** — qualquer ação que não pode ser automatizada gera um Issue com título `infra: <descrição>`, labels `operation:provision` e `journey:diligence`, e corpo com o erro de API, a ação requerida e o critério de resolução.
 - **Nunca declarar "ação manual" como texto flutuante** — a instrução para o humano vai no corpo do Issue, não como mensagem de output do agente. O output do agente lista Automation Opportunities e Known Platform Limitations.
 - **Sync manifest como registro de verdade** — o manifest registra: CONFORME (verificado via API neste ciclo), PARCIAL (Issue #X aberto com gap documentado) ou NÃO CONFORME (problema automatizável não resolvido).
@@ -106,7 +106,7 @@ Invocável pelo usuário (`/diligence workspace-reconciliation`) e pelos ciclos 
 
 ## References
 
-→ [Diligence journey README](../../framework/journeys/diligence/README.md)
-→ [Execution Mapping](../../framework/execution-mapping/README.md)
-→ [Work Item Schema](../../framework/execution-mapping/work-item-schema.md)
-→ [Mapping Matrix](../../framework/execution-mapping/matrix.md)
+→ [Diligence journey README](../../../prodops/framework/journeys/diligence/README.md)
+→ [Execution Mapping](../../../prodops/framework/execution-mapping/README.md)
+→ [Work Item Schema](../../../prodops/framework/execution-mapping/work-item-schema.md)
+→ [Mapping Matrix](../../../prodops/framework/execution-mapping/matrix.md)

@@ -139,11 +139,29 @@ States represent **contract maturity**, not software state.
 | State | When | Description |
 |---|---|---|
 | **Draft** | BIB / Product Backlog — entry | Created; may be incomplete; records initial intent and hypotheses |
-| **Refining** | Product Backlog — Icebox view | Under active refinement; Discovery/Upstream may be occurring |
-| **Committed** | Product Backlog — Iteration Backlog view | Minimum information validated; ready for Delivery |
+| **Refining** | Product Backlog — Icebox view | Actively being refined; the Discovery journey may be in progress (in Upstream or Downstream mode) |
+| **Readiness** | Product Backlog — Iteration Backlog view | Certifies that Downstream Discovery produced a complete contract verifiable by third parties; ready for Delivery |
 | **In Delivery** | Iteration Plan → Delivery | In execution; implementation in progress |
 | **Operational** | Operation | In production; updated with operational evidence |
 | **Archived** | — | Intent closed; history preserved |
+
+> **Causal direction:** OBC states do not determine the mode or produce the commitment — they make the commitment observable. What causes an OBC to transition between states is the satisfaction of criteria reflecting the current commitment's maturity. **The mode is the cause; the states are the verifiable record.** Changing an OBC's state does not change the mode; the mode already exists before the state reflects it.
+
+### Canonical State Transitions
+
+```
+[*] → Draft               (Business Signal → Business Intent)
+Draft → Refining          (CommitmentGate Promote outcome — Moment 2)
+Refining → Readiness      (Readiness Gate approved — Moment 3)
+Readiness → In Delivery   (Bootstrap.Started)
+In Delivery → Operational (Promote completed)
+Operational → Archived    (Deprecation or replacement)
+Draft → Archived           (CommitmentGate Discard outcome)
+Refining → Draft           (pre-condition for Discard when OBC is in Refining: formal redraft records learnings before archiving)
+In Delivery → Refining    (Downstream → Upstream regression: hypothesis invalidated during Delivery)
+```
+
+The `In Delivery → Refining` transition is a formal commitment suspension — not a return to a prior step. It requires two mandatory records: an entry in the Release Trail and the opening of a new Upstream experiment referencing the original OBC. See [Regression Protocol](execution-model/downstream.en.md#downstream--upstream-regression-protocol).
 
 ---
 
@@ -168,8 +186,8 @@ States represent **contract maturity**, not software state.
 |---|---|---|
 | OBC Partitioning | Draft | Local OBC created with reference to the Global OBC |
 | Product Backlog — Icebox view | Refining | Discovery refines the Local OBC; criteria emerge |
-| Assessment Review | Committed candidate | OBC reviewed by PM + Tech Lead; required sections validated |
-| Product Backlog — Iteration Backlog view | Committed | Minimum criteria validated; Downstream can begin |
+| Assessment Review | Readiness candidate | OBC reviewed by PM + Tech Lead; required sections validated |
+| Product Backlog — Iteration Backlog view | Readiness | Criteria validated; contract complete and verifiable by third parties; Downstream can begin |
 | Iteration Plan / Delivery | In Delivery | Guides implementation; BDD Feature operationalizes it |
 | Operation | Operational | In production; complemented with metrics, SLOs, incidents |
 | — | Archived | Intent closed |
@@ -227,10 +245,10 @@ OBCs produced within Upstream experiments remain in the experiment directory (`p
 
 ## OBC in Downstream
 
-Upon entering Downstream, the Local OBC ceases to be merely a record — it becomes the operational contract of the delivery. It is refined in the Icebox until reaching the Committed state, then controls the entire evolution of subsequent journeys.
+Upon entering Downstream, the Local OBC ceases to be merely a record — it becomes the operational contract of the delivery. It is refined in the Icebox until reaching the Readiness state, then controls the entire evolution of subsequent journeys.
 
 Commitment may be declared before readiness. The minimum set required to reach **Downstream Ready** and start a Delivery phase is:
-- Local OBC committed in `prodops/artifacts/obcs/<slug>.md` with Committed state
+- Local OBC in Readiness state at `prodops/artifacts/obcs/<slug>.md`
 - BDD Feature committed in `prodops/artifacts/bdd/<slug>.feature`
 - Documented risks and an `In` Iteration Plan entry
 - Updated Reliability Plan when there is money movement, an external integration, an SLO change, high/critical risk, or a persistence or security change
@@ -268,7 +286,7 @@ All Downstream Skills use the Local OBC as their primary source of context. Skil
 | **Who modifies** | Product Manager, Tech Lead, engineers (with change record) |
 | **Who approves** | Product Manager + Tech Lead (Assessment Review) |
 | **Consumers** | Delivery, Reliability Plan, BDD Feature, Release Trail, Iteration Plan |
-| **Lifecycle** | Draft → Refining → Committed → In Delivery → Operational → Archived |
+| **Lifecycle** | Draft → Refining → Readiness → In Delivery → Operational → Archived |
 | **Journeys** | Discovery, Delivery, Operation, Assessment, Diligence |
 
 ---
@@ -279,7 +297,7 @@ All Downstream Skills use the Local OBC as their primary source of context. Skil
 |---|---|
 | Exploratory OBC (in Upstream experiment) | `prodops/artifacts/experiments/<NNN-slug>/obcs/<slug>.md` |
 | Committed Global OBC | Platform portfolio repository (external to this repository) |
-| Committed Local OBC | `prodops/artifacts/obcs/<slug>.md` |
+| Local OBC in Readiness state | `prodops/artifacts/obcs/<slug>.md` |
 
 ---
 
@@ -300,3 +318,8 @@ Do not use OBC as a substitute for an isolated technical task or bug ticket with
 → [Phases: Conception and Inception](phases.en.md)
 → [Discovery Journey](journeys/discovery/README.en.md)
 → [Reliability Plans](../artifacts/plans/reliability/README.en.md)
+
+
+---
+
+→ **Next:** [Artifact Types](artifact-types.en.md)

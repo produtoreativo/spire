@@ -7,7 +7,7 @@ argument-hint: "[--demo] [--with-diligence] [--demo-run-id <id>] [--fast]"
      Source:    prodops/skills/delivery/SKILL.md
      Player:    codex
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:01Z
+     Generated: 2026-09-22T21:28:02Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill delivery
 -->
 

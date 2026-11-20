@@ -2,6 +2,7 @@
 name: upstream
 description: Execute ProdOps exploratory engineering. Use when exploring, experimenting, implementing disposable code, creating endpoints or integrations, updating contracts, building prototypes, validating hypotheses, refining OBCs, preparing BDDs, updating Reliability Plan or Event Storming, updating the Validation Workbench, or turning uncertainty into Downstream-ready work.
 ---
+<!-- MATERIALIZED FILE — prodops/skills/upstream/SKILL.en.md -->
 
 # Upstream Skill
 
@@ -177,6 +178,6 @@ Do not continue implementation after the experiment question has been answered.
 
 ## References
 
-→ [Execution Mapping](../../framework/execution-mapping/README.md)
-→ [Work Item Schema](../../framework/execution-mapping/work-item-schema.md)
-→ [Mapping Matrix](../../framework/execution-mapping/matrix.md)
+→ [Execution Mapping](../../../prodops/framework/execution-mapping/README.md)
+→ [Work Item Schema](../../../prodops/framework/execution-mapping/work-item-schema.md)
+→ [Mapping Matrix](../../../prodops/framework/execution-mapping/matrix.md)

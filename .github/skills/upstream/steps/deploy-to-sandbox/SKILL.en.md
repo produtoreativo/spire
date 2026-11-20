@@ -2,6 +2,7 @@
 name: upstream/deploy-to-sandbox
 description: Deploy an experiment branch to a real cloud sandbox environment without downstream rigor. Use when an experiment needs to validate behavior against a real external provider that cannot be exercised locally.
 ---
+<!-- MATERIALIZED FILE — prodops/skills/upstream/steps/deploy-to-sandbox/SKILL.en.md -->
 
 # UPSTREAM / DEPLOY TO SANDBOX
 
@@ -22,7 +23,7 @@ Before running this step, confirm:
 - [ ] Experiment is registered in `prodops/artifacts/experiments/`
 - [ ] Experiment branch exists in the repository
 - [ ] GitHub Environment `experiment` exists with the required secrets (see product setup)
-- [ ] IAM role or equivalent cloud identity for experiment deployment exists (see product infrastructure)
+- [ ] Cloud identity for experiment deployment exists (see product infrastructure)
 
 ## Required Setup (one-time, per product — defined in product local area)
 

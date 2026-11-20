@@ -17,11 +17,11 @@ flowchart TD
         direction TB
         ICE["Icebox\n(item aceito no Product Backlog)"]
         REF["Refinamento\nfuncional · técnico · operacional"]
-        OBC["OBC Committed\n+ BDD Feature\n+ Riscos documentados"]
+        OBC["OBC Readiness\n+ BDD Feature\n+ Riscos documentados"]
         ICE --> REF --> OBC
     end
 
-    DISC -->|"aprendizados suficientes\npromovem"| DOWN
+    DISC -->|"CommitmentGate\n→ Promover"| DOWN
     OBC -->|"entra no\nIteration Backlog"| NEXT(["→ Delivery"])
 
     style UP fill:#1a2a3a,stroke:#4a90d9,color:#e8f4fd
@@ -48,7 +48,7 @@ Pode incluir:
 - experimentos e vibecoding
 - pesquisas
 
-Um experimento Upstream pode produzir código de qualidade de produção, mas esse código é considerado exploratório até que a capability seja promovida para Downstream.
+Um experimento Upstream pode produzir código de qualidade de produção. O rótulo exploratório descreve o modelo de compromisso — sem gates obrigatórios, sem OBC Readiness, sem Release Trail — não o limite de implantação. Por decisão explícita do time e da liderança, esse código pode ser implantado em produção ou em ambientes produtivos controlados sem exigir promoção formal para Downstream. O CommitmentGate formaliza a transição de modo; não é pré-condição de implantação.
 
 ---
 
@@ -56,13 +56,13 @@ Um experimento Upstream pode produzir código de qualidade de produção, mas es
 
 **Objetivo:** Preparar um item comprometido para Delivery.
 
-Um item entra no Icebox após ser aceito no Product Backlog. A Discovery no Downstream ocorre dentro do Icebox. O objetivo é produzir um Local OBC no estado Committed por meio de refinamento:
+Um item entra no Icebox após ser aceito no Product Backlog. A Discovery no Downstream ocorre dentro do Icebox. O objetivo é produzir um Local OBC no estado Readiness por meio de refinamento:
 
 - funcional — o que o sistema deve fazer
 - técnico — como o sistema deve fazer
 - operacional — como o sistema deve se comportar em produção
 
-Ao final da Discovery no Downstream, o item possui Local OBC no estado Committed e avança para o Iteration Backlog.
+Ao final da Discovery no Downstream, o item possui Local OBC no estado Readiness e avança para o Iteration Backlog.
 
 ---
 
@@ -122,7 +122,9 @@ O Upstream pode documentar a dependência, mas não deve fazê-la parecer execut
 
 # Saídas Típicas
 
-Uma atividade Upstream pode produzir:
+## No modo Upstream
+
+Uma atividade exploratória (modo Upstream) pode produzir:
 
 - código executável;
 - melhorias no Validation Workbench;
@@ -136,9 +138,21 @@ Uma atividade Upstream pode produzir:
 - atualizações da Product Tracking List;
 - decisões de arquitetura.
 
+## No modo Downstream
+
+Uma atividade de refinamento (Discovery em modo Downstream) tipicamente produz:
+
+- OBC em estado Readiness;
+- BDD Feature refinada e movida para `prodops/artifacts/bdd/`;
+- Riscos documentados em `prodops/artifacts/risks/risks.md`;
+- Reliability Plan atualizado (quando aplicável);
+- entrada no Iteration Plan com status `Entrou`.
+
 ---
 
 # Workflow
+
+## Fluxo Upstream
 
 Um fluxo Upstream típico é:
 
@@ -170,11 +184,33 @@ Decisão
 
 ↓
 
-Assessment
+CommitmentGate
 
 ↓
 
-Downstream (se aprovado)
+Downstream (se Promover)
+
+## Fluxo Downstream
+
+Quando a jornada Discovery opera em modo Downstream (refinamento de item comprometido):
+
+Item aceito no Product Backlog
+
+↓
+
+Icebox (refinamento funcional, técnico, operacional)
+
+↓
+
+OBC Readiness + BDD Feature + Riscos documentados
+
+↓
+
+Readiness Gate aprovado
+
+↓
+
+Iteration Backlog → Delivery
 
 ---
 
@@ -197,6 +233,19 @@ Exemplos:
 
 Experimentos devem ser pequenos e focados.
 
+Um experimento pode ser transversal (envolver múltiplos produtos), desde que um produto primário seja declarado como responsável pelo experimento.
+
+## Condições para abrir um experimento formal
+
+Todas as quatro condições devem ser verdadeiras:
+
+1. **Hipótese falsificável** — é possível definir o que invalidaria a hipótese
+2. **Hipótese não respondida** — a resposta não existe nas evidências já disponíveis
+3. **Resposta tem valor de decisão** — afeta o que será construído ou como será construído
+4. **Custo de ignorar > custo de experimentar** — o custo de assumir a hipótese como verdadeira sem testar é maior que o custo do experimento
+
+Se qualquer condição falhar, o experimento pode não ser o instrumento correto: pode ser uma pesquisa rápida, uma decisão de negócio direta, ou trabalho que já cabe em Downstream.
+
 ## Experiment File Layout
 
 Novos experimentos devem usar um diretório por experimento:
@@ -216,7 +265,7 @@ Use `evidence/` apenas para material de suporte muito detalhado para o documento
 
 Arquivos planos de experimento restaurados de caminhos legados são artefatos históricos. Não criar novos arquivos planos de experimento. Se um arquivo plano for restaurado do histórico ou de outra branch, migrá-lo para o padrão de diretório canônico antes de fazer outras alterações.
 
-O `prodops/framework/journeys/discovery/upstream-trail.md` global não é o lugar primário para o histórico de execução de experimentos. Mantê-lo como índice cronológico de alto nível para marcos entre experimentos, migrações, promoções e mudanças de processo Discovery/Upstream em nível de repositório.
+O `prodops/framework/journeys/discovery/upstream-trail.md` global não é o lugar primário para o histórico de execução de experimentos. Mantê-lo como índice cronológico de alto nível para marcos entre experimentos, migrações, promoções e mudanças de processo na jornada Discovery ou no modo Upstream em nível de repositório.
 
 ---
 
@@ -233,53 +282,52 @@ O Validation Workbench é o ambiente preferencial para validação funcional.
 - validar UX;
 - reduzir incerteza de implementação.
 
-O Validation Workbench faz parte do Upstream.
+O Validation Workbench é usado na jornada Discovery operando em modo Upstream.
 
 ---
 
-# Relationship with Assessment
+# CommitmentGate — Transição Upstream → Downstream
 
-Todo experimento concluído deve produzir um Decision Package.
+O CommitmentGate é o gate formal de transição entre Upstream e Downstream.
+Ele não ocorre automaticamente ao final de um experimento — o trio deve ser convocado explicitamente.
 
-O Decision Package alimenta o Continuous Assessment.
+## Pré-condições para convocar o CommitmentGate
 
-O Assessment decide se uma capability deve:
+Antes de convocar, confirmar que todas as quatro condições são verdadeiras:
 
-- avançar para Downstream;
-- exigir outro experimento;
-- aguardar decisões de negócio;
-- ser descartada.
+1. **Hipótese respondida** — os Exit Criteria do experimento foram satisfeitos; o Decision Package está completo.
+2. **Evidence Threshold satisfeito** (se declarado) — o critério de suficiência de evidência registrado no `experiment.md` foi atingido.
+3. **OBC Draft existe** — ao menos o arquivo, com nome da capability e referência ao experimento.
+4. **BDD draft legível** — rascunho dos cenários de comportamento esperado (não precisa estar em `prodops/artifacts/bdd/`).
 
-## Revisão do Decision Package
+**Critério de verificabilidade:** um membro do trio que não participou do experimento deve conseguir ler o Decision Package e chegar às mesmas conclusões sem contexto verbal adicional. Se o Decision Package requer explicação oral para ser compreendido, ele não está pronto para o CommitmentGate.
 
-O Decision Package não é revisado automaticamente — ele precisa de uma decisão explícita de quem tem autoridade sobre o produto e a arquitetura.
+Qualquer membro do trio (PM, Tech Lead, Autor) pode convocar o CommitmentGate.
 
-### Quando revisar
+## Trio do CommitmentGate
 
-Após o experimento atingir seus Exit Criteria (hipótese respondida, recomendação produzida, artefatos atualizados). Não revisar experimentos incompletos.
-
-### Quem participa
-
-| Papel | Responsabilidade na revisão |
+| Papel | Responsabilidade |
 |---|---|
 | Product Manager | Valida o valor de negócio e decide se a capability entra no Iteration Plan |
 | Tech Lead | Valida viabilidade técnica, riscos arquiteturais e OBC |
 | Autor do experimento | Apresenta as descobertas e defende a recomendação |
 
-### O que é revisado
+A aprovação é coletiva. Qualquer membro pode bloquear com justificativa registrada.
+
+## O que é avaliado
 
 O Decision Package completo (seções do `experiment.md`):
 - **Executive Summary** — entendimento compartilhado do que foi descoberto
-- **Recommended Decision** — a recomendação do autor (ver opções abaixo)
-- **Updated Risks** — novos riscos ou riscos mitigados
-- **Updated Opportunities** — oportunidades identificadas
-- **Updated Tracking Items** — itens que precisam entrar nas Product Tracking Lists ou Portfolio Tracking Lists
-- **Updated OBCs** — critérios de sucesso propostos
-- **Recommended Downstream Scope** — o que entra na próxima iteração, se aprovado
+- **Decisão Recomendada** — a recomendação do autor (ver outcomes abaixo)
+- **Riscos Atualizados** — novos riscos ou riscos mitigados
+- **Oportunidades Atualizadas** — oportunidades identificadas
+- **Itens de Tracking Atualizados** — itens que precisam entrar nas Product Tracking Lists ou Portfolio Tracking Lists
+- **OBCs Atualizados** — critérios de sucesso propostos
+- **Escopo Downstream Recomendado** — o que entra na próxima iteração, se aprovado
 
-### Possíveis saídas da revisão
+## Outcomes Canônicos
 
-| Recomendação | O que acontece |
+| Outcome | O que acontece |
 |---|---|
 | **Promover** | Iniciar processo de promoção (ver seção "Processo de promoção para Downstream"). BDD Feature + OBC movidos. Capability entra no Iteration Plan. |
 | **Promover com restrição** | Subconjunto da capability é promovido. Partes restritas permanecem em Upstream para outro experimento. |
@@ -288,23 +336,23 @@ O Decision Package completo (seções do `experiment.md`):
 | **Aguardar dependência externa** | Registrar a dependência no Reliability Plan e na Product Tracking List. Monitorar no Continuous Assessment. |
 | **Descartar** | Registrar o aprendizado em `prodops/framework/journeys/discovery/learnings.md`. Fechar o experimento com justificativa no `upstream-trail.md`. |
 
-### Registro da decisão
+## Registro do CommitmentGate
 
-Independente da saída, registrar no `upstream-trail.md` do experimento:
-- Data da revisão
-- Participantes
-- Decisão tomada
+Independente do outcome, registrar no `upstream-trail.md` do experimento:
+- Data do CommitmentGate
+- Participantes (trio)
+- Outcome canônico
 - Próximos passos
 
-Se a saída gerar mudança no Reliability Plan, atualizar `prodops/artifacts/risks/risks.md` ou `opportunities.md` antes de fechar o ciclo.
+Se o outcome gerar mudança no Reliability Plan, atualizar `prodops/artifacts/risks/risks.md` ou `opportunities.md` antes de fechar o ciclo.
 
 ---
 
 # Relationship with Downstream
 
-O Upstream prepara conhecimento.
+O Upstream opera sem compromisso de capability: o time aprende, experimenta e implanta sem OBC Readiness, sem Release Trail, sem gates obrigatórios.
 
-O Downstream entrega software.
+O Downstream opera com compromisso formal: entrega, qualidade, confiabilidade e rastreabilidade são obrigatórios em cada fase.
 
 Uma capability deve avançar para Downstream apenas quando:
 
@@ -322,14 +370,14 @@ A promoção é uma decisão explícita, não uma consequência automática de u
 
 A decisão de promover é do Product Manager + Tech Lead responsáveis pela capability, com base no Decision Package produzido pelo experimento.
 
-### Critérios de promoção
+### Critérios de promoção (CommitmentGate)
 
-Antes de promover, confirmar que:
+Para o CommitmentGate emitir outcome **Promover**, confirmar que:
 
 1. O Decision Package do experimento tem recomendação clara (`Promover` ou `Promover com restrição`).
-2. O comportamento esperado está descrito em um BDD Feature em `prodops/artifacts/experiments/<NNN-slug>/features/` pronto para ser movido para `prodops/artifacts/bdd/`.
-3. O OBC draft em `prodops/artifacts/experiments/<NNN-slug>/obcs/` tem critérios mensuráveis e pode ser movido para `prodops/artifacts/obcs/`.
-4. O Reliability Plan foi atualizado com os riscos e mitigation actions identificados no experimento.
+2. O BDD draft está legível em `prodops/artifacts/experiments/<NNN-slug>/features/` (rascunho dos cenários — não precisa estar completo).
+3. O OBC Draft existe em `prodops/artifacts/experiments/<NNN-slug>/obcs/` (ao menos arquivo com nome e referência ao experimento — campos detalhados são preenchidos no Icebox).
+4. O Reliability Plan foi atualizado com os riscos identificados no experimento.
 5. A incerteza remanescente é aceitável para entrar em Downstream com compromisso de entrega.
 
 ### Passos da promoção
@@ -362,26 +410,33 @@ Antes de promover, confirmar que:
    (entrada de alto nível: o quê foi promovido e quando)
 ```
 
-### O que NÃO é promoção
+### O que NÃO é promoção de capability
 
-- Mover código para produção sem mover os artefatos ProdOps.
+- **Mover código para produção sem mover os artefatos ProdOps** — isso é "Produção Controlada" (ato permitido no Upstream, sem CommitmentGate), não promoção de capability. O código chega a produção; a capability permanece em modo Upstream.
 - Criar um OBC committed sem BDD Feature correspondente.
 - Iniciar implementação Downstream antes de o OBC estar em `prodops/artifacts/obcs/`.
 - Promover com recomendação `Não promover` ou `Requer outro experimento` no Decision Package.
+
+> **Distinção crítica:** "código em produção" e "capability promovida" são dois objetos diferentes. O CommitmentGate decide sobre a *capability* (compromisso de entrega formal). A decisão de implantar código é do time/liderança e pode acontecer antes, depois ou independentemente do CommitmentGate.
 
 ---
 
 # Golden Rules
 
 - Manter experimentos focados.
-- Responder a uma pergunta por vez.
+- Formular uma hipótese central por experimento; múltiplas perguntas de investigação são permitidas.
 - Produzir evidências executáveis sempre que possível.
 - Parar quando a hipótese tiver sido respondida.
 - Atualizar os artefatos ProdOps afetados.
 - Documentar aprendizados.
-- Produzir uma recomendação clara.
+- Produzir uma recomendação clara com outcome canônico.
 - Evitar implementar capabilities não relacionadas.
 
 O aprendizado é o resultado primário.
 
 A implementação é um meio para alcançar o aprendizado.
+
+
+---
+
+→ **Próximo:** [Jornada Delivery](../delivery/README.md)

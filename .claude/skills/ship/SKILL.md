@@ -6,7 +6,7 @@ description: Observe and orchestrate the autonomous PR flow — merge, CI, and S
      Source:    prodops/skills/ship/SKILL.md
      Player:    claude
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:12Z
+     Generated: 2026-09-22T21:28:39Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill ship
 -->
 

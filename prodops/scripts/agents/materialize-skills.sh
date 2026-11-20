@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# INTERNAL TOOL — framework development use only.
+#
+# Consumer repositories receive .claude/skills/, .claude/agents/ and
+# .github/skills/ via install-prodops.sh, which copies the committed and
+# versioned artefacts from the framework clone. Do NOT run this script in
+# consumer repositories — it is only needed when creating or modifying a skill
+# inside the prodops-framework repo itself to keep the pre-materialized copies
+# in sync with prodops/skills/.
+#
 # Materialize canonical ProdOps skills into player-specific directories.
 #
 # Source:  prodops/skills/<skill>/SKILL.md
@@ -81,13 +90,54 @@ strip_header() {
   sed '/^<!-- MATERIALIZED FILE/,/^-->/d'
 }
 
+rewrite_paths() {
+  # Rewrite relative paths that escape the skills tree in materialized files.
+  #
+  # In the source (prodops/skills/<rel>), a path like "../../framework/" resolves
+  # correctly to prodops/framework/. In a player target (.claude/skills/<rel>),
+  # the identical path resolves to .claude/framework/ — which does not exist.
+  # The player root (.claude/, .agents/, .github/) sits one level above
+  # prodops/ in the repository, so crossing the skills root overshoots by one
+  # level and lands inside the player directory instead of in prodops/.
+  #
+  # Fix: wherever a sequence of N "../"s would escape from the source file's
+  # directory to prodops/, replace that sequence in the target content with
+  # (N+1) "../"s followed by "prodops/". The extra level crosses the player
+  # root and re-enters prodops/ from the repository root.
+  #
+  # The negative lookbehind (?<![./]) ensures we match exactly N "../"s and
+  # not a sub-sequence buried inside a longer escape chain. A "/" immediately
+  # before the N-level prefix means we are in the middle of a deeper chain
+  # (e.g. "../" in "../../../") and must not touch it.
+  #
+  # $1 = content string
+  # $2 = N = number of "../"s needed to escape to prodops/ from the source dir
+  #       = depth of the file within <player>/skills/ (counting "skills/" as 1)
+  local content="$1"
+  local N="$2"
+  local old_prefix="" new_prefix="" i
+  for i in $(seq 1 "$N");         do old_prefix="${old_prefix}../"; done
+  for i in $(seq 1 "$((N + 1))"); do new_prefix="${new_prefix}../"; done
+  local new_full="${new_prefix}prodops/"
+  # Use Perl for the negative lookbehind — sed BRE has no lookbehind support.
+  # Values are passed via env so "/" in the path strings does not conflict with
+  # any regex delimiter. \Q...\E quotes the prefix as literal (escapes dots so
+  # they match a literal "." not any char). (?<![./]) rejects any match where
+  # the immediately preceding character is "." or "/" (i.e. the matched escape
+  # is a sub-segment of a longer "../../../..." chain). The /e modifier eval's
+  # the replacement so $ENV{NEW}.$1 concatenates the new prefix + captured char.
+  printf '%s' "$content" | \
+    OLD="$old_prefix" NEW="$new_full" \
+    perl -pe 's|(?<![./])\Q$ENV{OLD}\E([^.])|$ENV{NEW}.$1|ge'
+}
+
 materialize_steps() {
   # A skill may be multi-file: finish/steps/<step>/SKILL.md, but also
   # diligence/diligence-sync/... or ship/references/workflow.md. The parent
   # SKILL.md links to those with source-relative paths, so the whole sub-tree
   # must be materialized alongside it or the links dangle for the player.
   # Everything under the skill dir except the top-level SKILL.md is copied
-  # verbatim — only the parent carries the provenance header.
+  # with path rewriting applied — only the parent carries the provenance header.
   local skill="$1" target_dir="$2"
   local skill_src="$SKILLS_SRC/$skill"
   [[ -d "$skill_src" ]] || return 0
@@ -97,16 +147,63 @@ materialize_steps() {
     sub_rel="${sub_src#"$skill_src/"}"
     [[ "$sub_rel" == "SKILL.md" ]] && continue
     sub_target="$target_dir/$sub_rel"
-    if [[ -f "$sub_target" ]] && cmp -s "$sub_src" "$sub_target"; then
-      continue
+
+    # Compute N for this sub-file's location in the player tree.
+    # The file sits at <player>/skills/<skill>/<sub_rel>.
+    # Depth from player root = 1 (skills/) + 1 (skill name) + depth(sub_dir).
+    local sub_dir sub_depth N_sub
+    sub_dir=$(dirname "$sub_rel")
+    if [[ "$sub_dir" == "." ]]; then
+      sub_depth=0
+    else
+      sub_depth=$(echo "$sub_dir" | tr '/' '\n' | grep -c .)
     fi
+    N_sub=$((2 + sub_depth))
+
+    # Read source, apply path rewriting, then prepend a provenance comment.
+    # The comment marks the file as framework-managed so install-claude.sh
+    # overwrites it on update rather than skipping it as a custom file.
+    local sub_content transformed_content materialized_content
+    sub_content=$(cat "$sub_src")
+    transformed_content=$(rewrite_paths "$sub_content" "$N_sub")
+
+    local sub_provenance="<!-- MATERIALIZED FILE — prodops/skills/${skill}/${sub_rel} -->"
+    if [[ "$transformed_content" == ---* ]]; then
+      # Preserve YAML frontmatter at line 1 by inserting the comment after it.
+      local fm_end_line
+      fm_end_line=$(printf '%s\n' "$transformed_content" | awk 'NR==1{next} /^---/{print NR; exit}')
+      if [[ -n "$fm_end_line" ]]; then
+        local -a sub_lines sub_fm sub_body
+        mapfile -t sub_lines <<< "$transformed_content"
+        sub_fm=$(printf '%s\n' "${sub_lines[@]:0:fm_end_line}")
+        sub_body=$(printf '%s\n' "${sub_lines[@]:fm_end_line}")
+        materialized_content="${sub_fm}
+${sub_provenance}
+${sub_body}"
+      else
+        materialized_content="${sub_provenance}
+${transformed_content}"
+      fi
+    else
+      materialized_content="${sub_provenance}
+${transformed_content}"
+    fi
+
+    if [[ -f "$sub_target" ]]; then
+      local current_content
+      current_content=$(cat "$sub_target")
+      if [[ "$current_content" == "$materialized_content" ]]; then
+        continue
+      fi
+    fi
+
     if [[ "$CHECK_ONLY" == "true" ]]; then
       log "↻ sub drift   [$skill] $sub_rel"
       DRIFT_COUNT=$((DRIFT_COUNT + 1))
       continue
     fi
     mkdir -p "$(dirname "$sub_target")"
-    cp "$sub_src" "$sub_target"
+    printf '%s\n' "$materialized_content" > "$sub_target"
     log "  → written: $sub_target"
     WRITTEN_COUNT=$((WRITTEN_COUNT + 1))
   done < <(find "$skill_src" -type f -name '*.md' | sort)
@@ -124,6 +221,11 @@ materialize_skill() {
   local src_content
   src_content=$(cat "$src")
 
+  # N=2 for top-level SKILL.md: <player>/skills/<skill>/SKILL.md
+  # (1 for "skills/" + 1 for the skill name = 2 levels to escape player root)
+  local rewritten_src
+  rewritten_src=$(rewrite_paths "$src_content" 2)
+
   for i in "${!PLAYER_DIRS[@]}"; do
     local player_dir="${PLAYER_DIRS[$i]}"
     local player="${PLAYER_NAMES[$i]}"
@@ -134,9 +236,9 @@ materialize_skill() {
     # Tools like Codex CLI require YAML frontmatter on the very first line.
     # If the source starts with ---, inject the provenance comment after the
     # closing --- so the frontmatter block remains at line 1.
-    if [[ "$src_content" == ---* ]]; then
+    if [[ "$rewritten_src" == ---* ]]; then
       local fm_end_line
-      fm_end_line=$(printf '%s\n' "$src_content" | awk 'NR==1{next} /^---/{print NR; exit}')
+      fm_end_line=$(printf '%s\n' "$rewritten_src" | awk 'NR==1{next} /^---/{print NR; exit}')
       if [[ -n "$fm_end_line" ]]; then
         local frontmatter body
         # Split without pipes: `head` closes the pipe before `printf` finishes
@@ -144,7 +246,7 @@ materialize_skill() {
         # aborts the whole run. mapfile keeps the split in-process and preserves
         # blank lines and glob characters verbatim.
         local -a src_lines
-        mapfile -t src_lines <<< "$src_content"
+        mapfile -t src_lines <<< "$rewritten_src"
         frontmatter=$(printf '%s\n' "${src_lines[@]:0:fm_end_line}")
         body=$(printf '%s\n' "${src_lines[@]:fm_end_line}")
         generated_content="${frontmatter}
@@ -152,11 +254,11 @@ $(provenance_header "$skill" "$player")
 ${body}"
       else
         generated_content="$(provenance_header "$skill" "$player")
-${src_content}"
+${rewritten_src}"
       fi
     else
       generated_content="$(provenance_header "$skill" "$player")
-${src_content}"
+${rewritten_src}"
     fi
 
     if [[ -f "$target" ]]; then
@@ -172,7 +274,7 @@ ${src_content}"
         structure_ok=false
       fi
 
-      if [[ "$target_body" == "$src_content" && "$structure_ok" == "true" ]]; then
+      if [[ "$target_body" == "$rewritten_src" && "$structure_ok" == "true" ]]; then
         log "✓ up-to-date  [$player] $skill"
         UP_TO_DATE_COUNT=$((UP_TO_DATE_COUNT + 1))
         # The parent being current says nothing about the sub-steps — check them
@@ -185,7 +287,7 @@ ${src_content}"
       local target_no_header
       target_no_header=$(strip_header < "$target")
 
-      if [[ "$target_no_header" == "$src_content" ]]; then
+      if [[ "$target_no_header" == "$rewritten_src" ]]; then
         # Only header differs (e.g. timestamp) — safe to update
         log "↻ refresh     [$player] $skill (header only)"
         DRIFT_COUNT=$((DRIFT_COUNT + 1))

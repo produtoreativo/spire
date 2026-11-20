@@ -2,6 +2,7 @@
 name: diligence/workspace-reconciliation/verify
 description: Confirm that the GitHub repository state matches the Canonical Specification across all 4 categories. Reads Views via GraphQL. Updates the sync manifest with the verified conformance state. Produces the Conformance Report.
 ---
+<!-- MATERIALIZED FILE — prodops/skills/diligence/workspace-reconciliation/steps/verify/SKILL.md -->
 
 # WORKSPACE RECONCILIATION → VERIFY
 
@@ -127,7 +128,7 @@ Concluído quando **todos** os itens abaixo são verdadeiros:
 - **Verificar todas as 4 categorias** — não pular nenhuma mesmo que o manifest indique conformidade anterior.
 - Nunca marcar uma categoria como `CONFORME` no manifest sem ter verificado via API nesta execução.
 - Distinguir claramente entre `PENDENTE — Issue #X documentado` (gap com rastreamento) e `NÃO CONFORME automatizável` (requer re-executar Reconcile). Nunca usar `PENDENTE manual` como status — toda pendência deve ter um Issue de rastreamento.
-- **Automation First (Princípio 8)** — projeto ausente é sempre `DIVERGENTE — reconcile required` (automatizável via `gh project create`), nunca "ação manual obrigatória". Ver [automation-first.md](../../../../../framework/automation-first.md).
+- **Automation First (Princípio 8)** — projeto ausente é sempre `DIVERGENTE — reconcile required` (automatizável via `gh project create`), nunca "ação manual obrigatória". Ver [automation-first.md](../../../../../../prodops/framework/automation-first.md).
 - Sempre incluir seções "Automation Opportunities" e "Known Platform Limitations" no Conformance Report quando aplicável.
 - Atualizar o manifest é obrigatório — Verify sem atualização de manifest não está completo.
 

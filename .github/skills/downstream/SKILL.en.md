@@ -2,6 +2,7 @@
 name: downstream
 description: Orchestrates the governed ProdOps delivery flow. Without arguments, reads the Iteration Plan and executes Entrou items in priority order. With a Downstream ID, executes only that item.
 ---
+<!-- MATERIALIZED FILE — prodops/skills/downstream/SKILL.en.md -->
 
 # DOWNSTREAM
 
@@ -260,10 +261,11 @@ Before executing either cycle, evaluate the capability against all current Downs
 3. Risks documented in `prodops/artifacts/risks/risks.md`.
 4. Item in the Iteration Plan with status `Entrou`.
 5. GitHub Issue existing and mapped in the `Issue` column of the active iteration's `plan.md`.
+6. Reliability Plan (`prodops/artifacts/plans/reliability/<capability>.md`) when there is money movement, an external integration, an SLO change, high/critical risk, or a persistence or security change.
 
-Treat commitment as **Downstream Declared** while any prerequisite is missing. Mark **Downstream Ready** only after all five gates pass. **Delivery Started** begins only when Bootstrap starts.
+**Gates 1–5 are blocking.** Gate 6 is blocking only under the declared conditions.
 
-Reliability Plan (`prodops/artifacts/plans/reliability/<capability>.md`) is optional. If it exists, include `reliability-path` in the capsule and reference SLOs during Validate and Promote. Its absence does not block the flow.
+Treat commitment as **Downstream Declared** while any prerequisite is missing. Mark **Downstream Ready** only after mandatory gates pass. **Delivery Started** begins only when Bootstrap starts.
 
 ## Readiness Cache
 
@@ -565,7 +567,7 @@ This sets `oem-state = PENDING` and allows Bootstrap to start again.
 ## References
 
 → Readiness SKILL
-→ [Execution Mapping](../../framework/execution-mapping/README.md)
-→ [Work Item Schema](../../framework/execution-mapping/work-item-schema.md)
-→ [Mapping Matrix](../../framework/execution-mapping/matrix.md)
-→ [Iteration Plan](../../artifacts/plans/iteration-plan.md)
+→ [Execution Mapping](../../../prodops/framework/execution-mapping/README.md)
+→ [Work Item Schema](../../../prodops/framework/execution-mapping/work-item-schema.md)
+→ [Mapping Matrix](../../../prodops/framework/execution-mapping/matrix.md)
+→ [Iteration Plan](../../../prodops/artifacts/plans/iteration-plan.md)

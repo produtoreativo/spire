@@ -6,7 +6,7 @@ description: Synchronize a work branch with its base or align ProdOps artifacts 
      Source:    prodops/skills/sync/SKILL.md
      Player:    codex
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:13Z
+     Generated: 2026-09-22T21:28:42Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill sync
 -->
 

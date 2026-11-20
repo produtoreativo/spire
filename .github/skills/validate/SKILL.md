@@ -6,7 +6,7 @@ description: Validate release behavior with evidence, metrics, SLOs, and operati
      Source:    prodops/skills/validate/SKILL.md
      Player:    copilot
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:17Z
+     Generated: 2026-09-22T21:28:48Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill validate
 -->
 

@@ -2,6 +2,7 @@
 name: diligence/repair
 description: Execute corrections identified by Flag — update OBCs, create missing Work Items, close orphaned ones. Never touches product code or creates implementation PRs.
 ---
+<!-- MATERIALIZED FILE — prodops/skills/diligence/diligence-async/steps/repair/SKILL.md -->
 
 # DILIGENCE ASYNC → REPAIR
 
@@ -43,7 +44,7 @@ gh project item-list <project-number> --owner <owner> --format json \
 Se o projeto gerenciado não existir: registrar bloqueio — escalar para Workspace
 Reconciliation antes de continuar.
 
-**Work Item aberto com OBC Operational:** executar step Close para o OBC afetado.
+**Work Item aberto com OBC Released:** executar step Close para o OBC afetado.
 
 ```
 → prodops/skills/diligence/diligence-sync/steps/close/SKILL.md

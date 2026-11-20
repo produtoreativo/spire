@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # setup-mac.sh — Bootstrap completo de ambiente de desenvolvimento ProdOps para macOS
-# ProdOps Framework v1.14.1
+# ProdOps Framework v2.1.0
 #
 # Instala todas as ferramentas necessárias via Homebrew, clona o repositório
 # payments-api e prepara o projeto para desenvolvimento local.
@@ -20,7 +20,7 @@
 #   0  sucesso
 #   1  macOS não detectado ou erro fatal
 
-PRODOPS_VERSION="v1.14.1"
+PRODOPS_VERSION="v2.11.0"
 
 set -euo pipefail
 
@@ -412,14 +412,23 @@ echo -e "${BOLD}═════════════════════�
 echo ""
 echo "  Repositório : ${CLONE_DIR}"
 echo ""
-echo "  Próximos passos:"
-echo "    cd ${CLONE_DIR}"
-if ! already docker || ! docker info >/dev/null 2>&1; then
-  echo "    # Abra o Docker Desktop antes de rodar o projeto"
-fi
-echo "    npm run local:start   # sobe LocalStack"
-echo "    npm test              # roda os testes"
+echo "  ┌──────────────────────────────────────────────────────────────────┐"
+echo "  │  INSTRUÇÕES PARA O AGENTE CLAUDE CODE                           │"
+echo "  │  Execute cada passo via Bash tool na ordem indicada.            │"
+echo "  │  Verifique o critério de sucesso antes de avançar.              │"
+echo "  └──────────────────────────────────────────────────────────────────┘"
 echo ""
-echo "  Para rediagnosticar:"
-echo "    bash prodops/scripts/check-env.sh --fix-hints"
+echo "  [1] Entrar no repositório"
+echo "      cd ${CLONE_DIR}"
+echo ""
+if ! already docker || ! docker info >/dev/null 2>&1; then
+echo "  [2] Iniciar Docker Desktop (daemon inativo — necessário para LocalStack)"
+echo "      open -a Docker"
+echo "      until docker info >/dev/null 2>&1; do sleep 3; done && echo 'Docker pronto'"
+echo "      # Critério: 'Docker pronto' aparece no output (pode levar até 30s)"
+echo ""
+fi
+echo "  [D] Diagnóstico (executar se qualquer passo acima falhar)"
+echo "      bash prodops/scripts/check-env.sh --fix-hints"
+echo "      # Reportar ao usuário cada item com status FALHOU ou ATENÇÃO"
 echo -e "${BOLD}══════════════════════════════════════════════════════════════════${RESET}"

@@ -3,7 +3,7 @@
 This document defines the canonical artifact types of the ProdOps Framework: what each type represents, when it is born, which journey it belongs to, and how it relates to others.
 
 For governance (owners, approvals, lifecycle), see [artifact-governance.en.md](artifact-governance.en.md).
-For GitHub labels and fields, see [github-workspace.md](github-workspace.md).
+For GitHub labels and fields, see [github-workspace.en.md](github-workspace.en.md).
 
 ---
 
@@ -55,7 +55,7 @@ Execution artifacts (`Iteration Plan`, `Context Capsule`, `Release Trail`) are p
 
 **Canonical path:** `prodops/artifacts/business-intents/<id>.md`
 
-**Relations:** originates an OBC (Global or Local). In Downstream, must have OBC Committed before entering the Iteration Plan.
+**Relations:** originates an OBC (Global or Local). In Downstream, must have OBC Readiness before entering the Iteration Plan.
 
 ---
 
@@ -77,15 +77,15 @@ Execution artifacts (`Iteration Plan`, `Context Capsule`, `Release Trail`) are p
 
 **What it is:** an Observable Business Contract for a specific capability within a Product Repository. Defines Business Outcome, Observable Events, SLIs, Reliability Rules, and Response Contract.
 
-**Born when:** a Business Intent enters the Product Backlog — starts as Draft and evolves to Committed as Discovery progresses.
+**Born when:** a Business Intent enters the Product Backlog — starts as Draft and evolves to Readiness as Discovery progresses.
 
 **Journey:** Discovery → Delivery → Operation → Assessment (retroactive).
 
 **Canonical path:** `prodops/artifacts/obcs/<slug>.md`
 
-**Possible statuses:** `Draft` → `Refining` → `Committed` → `In Delivery` → `Operational` → `Archived`
+**Possible statuses:** `Draft` → `Refining` → `Readiness` → `In Delivery` → `Released` → `Archived`
 
-**Relations:** presupposed by `bdd-feature`, `reliability-plan`, `context-capsule`, and `release-trail`. Without OBC Committed, there is no entry into the Iteration Plan.
+**Relations:** presupposed by `bdd-feature`, `reliability-plan`, `context-capsule`, and `release-trail`. Without OBC Readiness, there is no entry into the Iteration Plan.
 
 ---
 
@@ -93,7 +93,7 @@ Execution artifacts (`Iteration Plan`, `Context Capsule`, `Release Trail`) are p
 
 **What it is:** a behavioral specification in Gherkin format (Given/When/Then) describing the expected scenarios of the capability. It is the executable definition of what will be built.
 
-**Born when:** the OBC reaches Committed status and the Tech Lead writes the scenarios that will guide the TDD cycle.
+**Born when:** the OBC reaches Readiness status and the Tech Lead writes the scenarios that will guide the TDD cycle.
 
 **Journey:** Delivery (Hack phase — Red → Green → Refactor cycle).
 
@@ -121,7 +121,7 @@ Execution artifacts (`Iteration Plan`, `Context Capsule`, `Release Trail`) are p
 
 ### `iteration-plan`
 
-**What it is:** the active iteration plan — lists capabilities with `Entrou` status, maps DS-IDs to GitHub Issues, and records the history of completed iterations.
+**What it is:** the active iteration plan — lists capabilities with `Entered` status, maps DS-IDs to GitHub Issues, and records the history of completed iterations.
 
 **Born when:** the team decides which capabilities will enter the next Delivery iteration.
 
@@ -129,7 +129,7 @@ Execution artifacts (`Iteration Plan`, `Context Capsule`, `Release Trail`) are p
 
 **Canonical path:** `prodops/artifacts/plans/iteration-plan.md`
 
-**Relations:** presupposes `local-obc` Committed + `bdd-feature` + `risk-register`. Referenced by `context-capsule` and `release-trail`.
+**Relations:** presupposes `local-obc` Readiness + `bdd-feature` + `risk-register`. Referenced by `context-capsule` and `release-trail`.
 
 ---
 
@@ -181,7 +181,7 @@ Execution artifacts (`Iteration Plan`, `Context Capsule`, `Release Trail`) are p
 
 **What it is:** a single-page canvas that aggregates the essential information about a product — vision, services with SLOs, team, execution architecture, reliability matrix, analytics, and stakeholders. Inspired by Toyota's A3 Report.
 
-**Born when:** the product exists as a recognized entity and the team needs a consolidated operational reference artifact — typically after the first service enters Operational.
+**Born when:** the product exists as a recognized entity and the team needs a consolidated operational reference artifact — typically after the first service enters Released.
 
 **Journey:** cross-cutting — consumed by Assessment (premortems, maturity evaluation), Discovery (scope alignment), Delivery (Bootstrap context), and Operation (continuous metrics update).
 
@@ -199,7 +199,7 @@ Execution artifacts (`Iteration Plan`, `Context Capsule`, `Release Trail`) are p
 
 **Born when:** a service is listed in the Product Deck with a committed Local OBC — the Service Deck materializes that OBC's contracts as the operational view of the service.
 
-**Journey:** cross-cutting — created when the OBC reaches Committed; updated in Operation (metrics, SLOs) and Assessment (risk and contract review).
+**Journey:** cross-cutting — created when the OBC reaches Readiness; updated in Operation (metrics, SLOs) and Assessment (risk and contract review).
 
 **Canonical path:** `prodops/artifacts/services/<service-slug>/service-deck.md`
 
@@ -270,6 +270,11 @@ Findings feed Assessment when they indicate a systemic pattern — they are not 
 
 → [Artifact governance](artifact-governance.en.md) — owners, approvals, lifecycle
 → [Glossary](glossary.en.md) — canonical definitions of each concept
-→ [GitHub Workspace](github-workspace.md) — labels and fields by type
+→ [GitHub Workspace](github-workspace.en.md) — labels and fields by type
 → [OBC: full specification](obc.en.md)
 → [Journeys](journeys/README.en.md)
+
+
+---
+
+→ **Next:** [Product Deck](product-deck.en.md)

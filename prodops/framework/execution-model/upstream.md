@@ -8,7 +8,7 @@ Upstream representa um modo de exploração. Seu objetivo é reduzir incertezas 
 
 ## Propósito
 
-Produzir conhecimento. Não produzir software comprometido.
+Reduzir incerteza antes de assumir qualquer compromisso formal. O software produzido no Upstream pode ter qualidade de produção — o que não existe é compromisso de entrega, OBC Readiness ou Release Trail. O rigor é uma escolha do engenheiro, não uma imposição do modo.
 
 ## Características do modo
 
@@ -16,7 +16,7 @@ No Upstream:
 
 - não existem gates obrigatórios
 - não existe obrigação de concluir artefatos
-- não existe obrigação de produzir um OBC Committed
+- não existe obrigação de produzir um OBC Readiness
 - não existe obrigação de seguir todas as Skills
 - o engenheiro decide quais Skills utilizar
 - vibecoding é permitido
@@ -25,7 +25,7 @@ No Upstream:
 
 O objetivo é aprender o mais rápido possível.
 
-Um experimento Upstream pode produzir código de qualidade de produção, mas esse código é considerado exploratório até que a capability seja promovida para Downstream.
+Um experimento Upstream pode produzir código de qualidade de produção. O rótulo exploratório descreve o modelo de compromisso — sem gates obrigatórios, sem OBC Readiness, sem Release Trail — não o limite de implantação. Por decisão explícita do time e da liderança, esse código pode ser implantado em produção ou em ambientes produtivos controlados sem exigir promoção formal para Downstream. O CommitmentGate formaliza a transição de modo; não é pré-condição de implantação.
 
 ## OBC no Upstream
 
@@ -48,22 +48,105 @@ O OBC funciona como memória do aprendizado — não como mecanismo de validaç�
 - Validar fluxo de negócio antes de comprometer
 - Explorar abordagem técnica antes de decidir
 
+## Condições para abrir um experimento formal
+
+Todas as quatro condições devem ser verdadeiras para justificar a abertura de um experimento formal:
+
+1. **Hipótese falsificável** — é possível definir o que invalidaria a hipótese
+2. **Hipótese não respondida** — a resposta não existe nas evidências já disponíveis
+3. **Resposta tem valor de decisão** — afeta o que será construído ou como será construído
+4. **Custo de ignorar > custo de experimentar** — o custo de assumir a hipótese como verdadeira sem testar é maior do que o custo do experimento
+
+Se qualquer condição falhar, o experimento não é o instrumento correto: pode ser uma pesquisa interna, uma decisão de negócio, ou trabalho que já cabe diretamente em Downstream.
+
+## Evidence Threshold
+
+O Evidence Threshold é o critério que define quando a evidência coletada é suficiente para levar o Decision Package ao CommitmentGate.
+
+**É opcional, mas recomendado.** Quando declarado:
+- Deve ser registrado no `experiment.md` no início do experimento
+- Revisões ao critério (afrouxar ou endurecer) devem ser registradas no `upstream-trail.md` com justificativa
+- Atingir o threshold não convoca automaticamente o CommitmentGate — convoca o trio
+
+Sem Evidence Threshold declarado, o critério de parada é o julgamento do autor do experimento. Nesse caso, o autor é o responsável por documentar no Decision Package por que a evidência acumulada é suficiente.
+
+## Jornadas no Upstream
+
+**Upstream não é sinônimo de Discovery.** Todas as 5 jornadas do ProdOps estão disponíveis no Upstream — com rigor advisory. O engenheiro decide quais aplicar e com qual profundidade.
+
+| Jornada | Comportamento no Upstream |
+|---------|--------------------------|
+| **Discovery** | Exploratória — sem artefatos obrigatórios, sem gate de saída; experimentos, spikes, protótipos, Event Storming |
+| **Delivery** | Advisory — fases CI-Sync (Bootstrap → Finish) e CI-Async (Ship → Promote) disponíveis; Promote pode ir a sandbox ou, por decisão do time, a produção; sem Release Trail obrigatório |
+| **Operation** | Experimental — observação de comportamento em sandbox ou ambiente controlado; sem SLO obrigatório, sem runbook formal |
+| **Assessment** | Informa, não bloqueia — análise de riscos, premortem, Reliability Plan são opcionais e usados quando úteis |
+| **Diligence** | Leve — verificação de consistência de artefatos conforme o engenheiro julgar necessário |
+
+No Upstream, o engenheiro pode usar qualquer skill de fase com rigor completo se quiser — por exemplo, `/hack tdd` com ciclo Red/Green/Refactor idêntico ao Downstream. A diferença é que o rigor é uma escolha, não uma imposição.
+
+## Três atos de implantação no Upstream
+
+No Upstream, o código pode chegar a diferentes ambientes. Existem três atos distintos — com autorização e reversão diferentes. Nenhum dos três é promoção de capability.
+
+| Ato | O que é | Autorização | Reversão |
+|-----|---------|-------------|----------|
+| **Sandbox Deploy** | Deploy em stack efêmera e isolada (`experiment-*`), sem tráfego de cliente real | O engenheiro decide | Destruir a stack (`action=teardown`) |
+| **Produção Controlada** | Código Upstream implantado em produção real, sem CommitmentGate | Decisão explícita do time e da liderança | Rollback imediato disponível; sem Release Trail exigido |
+| **Promoção de Capability** | CommitmentGate outcome Promover: BDD + OBC movidos; item entra no Downstream | Trio PM + Tech Lead + Autor | Processo formal de rollback Downstream |
+
+**Produção Controlada não é uma violação do modo Upstream** — é um ato autorizado. O que a diferencia da Promoção é que o **compromisso de capability** (OBC Readiness, Release Trail, Downstream gates) não foi assumido. O código chega a produção; a capability permanece em exploração.
+
 ## Como executar no modo Upstream
 
-→ [Jornada Discovery](../journeys/discovery/README.md)
+→ [Jornada Discovery no Upstream](../journeys/discovery/README.md) — exploração, experimentos, Decision Package
+→ [Delivery no Upstream](../journeys/delivery/README.md) — fases disponíveis com rigor advisory
+→ [Sandbox Deploy](../journeys/discovery/README.md#sandbox-deploy-upstream) — deploy em ambiente controlado sem rigor Downstream
 
-A jornada Discovery documenta o workflow completo de exploração, experimentos, revisão de Decision Package e processo de promoção para Downstream.
+## Perpetual Discovery — Anti-padrão
 
-## Encerramento do Upstream
+O Perpetual Discovery ocorre quando um experimento continua acumulando evidências indefinidamente sem avançar para uma decisão de compromisso. O experimento não falhou — ele nunca terminou.
 
-Ao final do Upstream podem ocorrer quatro resultados:
+**Quatro sinais diagnósticos objetivos:**
 
-1. **Descartar** a Business Intent — aprendizado suficiente, mas não vale a pena avançar.
-2. **Arquivar** para uso futuro — aprendizado registrado, decisão adiada.
-3. **Retornar** ao Business Intent Backlog — aguardar decisão de negócio ou dependência externa.
-4. **Promover** para Downstream — decisão explícita do Product Owner, com Decision Package completo.
+| Sinal | Critério estrutural | Ação |
+|-------|---------------------|------|
+| **S1** | `experiment.md` não declara Evidence Threshold **e** não existe critério substituto explícito de parada | Convocar o trio: sem critério de parada, o experimento não pode terminar por definição |
+| **S2** | A hipótese central foi formulada de forma não-refutável — nenhum resultado poderia refutá-la — ou nunca foi formalizada como pergunta falsificável | Reformular hipótese antes de continuar coleta de evidências |
+| **S3** | Uma ou mais [Questions to Answer](../../glossary.md#questions-to-answer) foram marcadas como "não respondíveis com evidências disponíveis" e nenhuma nova rota de evidência ou reformulação de hipótese foi identificada | CommitmentGate com outcome Descartar ou reformulação completa da pergunta de investigação |
+| **S4** | Evidence Threshold existe mas a rota de coleta atual não consegue atingi-lo — dead end estrutural | CommitmentGate imediato: o experimento não pode concluir com a abordagem atual |
 
-A promoção para Downstream deve ser uma decisão explícita. Não existe transição automática.
+> **Natureza dos sinais:** S1-S4 são diagnósticos **estruturais** — verificam o estado dos artefatos do experimento, não o tempo decorrido. Um S1 pode ser detectado no primeiro dia de um experimento; um experimento ativo há meses pode não apresentar nenhum sinal se seus artefatos estiverem bem definidos.
+
+A presença de qualquer sinal não exige encerramento imediato — exige **convocação do trio para decidir conscientemente** se o experimento deve continuar, ser suspenso ou encerrado.
+
+## Coordenação do Upstream — Plano de Experimento
+
+O **Plano de Experimento** é o artefato de coordenação do modo Upstream: uma VIEW sobre o Icebox listando os experimentos com hipótese ativa. É o equivalente Upstream do Iteration Plan — governa exploração como o Iteration Plan governa entrega.
+
+O Plano de Experimento não define sequência nem impõe prazo. É um instrumento de visibilidade e controle de Discovery WIP — o número de experimentos Upstream ativos simultaneamente.
+
+→ [Definição completa do Plano de Experimento](../upstream-plan.md)
+
+---
+
+## Encerramento do Upstream — CommitmentGate
+
+O Upstream não termina automaticamente. O trio (PM + Tech Lead + Autor) é convocado explicitamente quando o Decision Package estiver pronto. Esse gate é o **CommitmentGate** — ele decide o destino da *capability*, não do código.
+
+**O CommitmentGate pode ocorrer em qualquer momento do Upstream** — não apenas ao final de um experimento completo. Pode acontecer logo após a abertura do experimento (se o trio decidir que a hipótese é suficientemente clara para comprometer), no meio da exploração (quando evidências parciais já satisfazem o Evidence Threshold), ou ao final (quando o Decision Package está completo). O CommitmentGate também pode ocorrer **na entrada do PIB diretamente a partir de um Business Signal** — quando o contexto de negócio é suficientemente claro e nenhum experimento Upstream é necessário antes de comprometer.
+
+Existem **6 outcomes canônicos**. Cada um tem protocolo de ação distinto:
+
+| Outcome | Ação obrigatória |
+|---------|-----------------|
+| **Promover** | BDD + OBC movidos para paths committed; item entra no Iteration Plan com `Entrou`; Downstream inicia |
+| **Promover com restrição** | Subconjunto promovido; partes restritas permanecem em Upstream para novo experimento |
+| **Requer outro experimento** | Criar novo experimento com hipótese mais específica; registrar decisão no `upstream-trail.md` atual |
+| **Aguardar decisão de negócio** | Bloquear na Product Tracking List com decisor e data esperada; não abrir novo experimento até a decisão chegar |
+| **Aguardar dependência externa** | Registrar no Reliability Plan e na Product Tracking List; monitorar no Continuous Assessment |
+| **Descartar** | Registrar aprendizado em `prodops/framework/journeys/discovery/learnings.md`; fechar experimento com justificativa no `upstream-trail.md` |
+
+A transição para Downstream só ocorre no outcome **Promover** ou **Promover com restrição**. Nos demais, a capability permanece no mesmo estágio em que estava antes do Upstream.
 
 ## Resultado esperado
 
@@ -93,13 +176,28 @@ Objetivo: validar comportamento contra um provedor real (ex: Asaas sandbox) quan
 → Workflow de deploy: `.github/workflows/experiment-deploy.yml` (implementado pelo produto)
 → Role IAM: `api/infra/iam-experiment-role.yaml` (implementado pelo produto)
 
-## Promoção para Downstream
+## Promoção para Downstream (CommitmentGate)
 
-Uma capability promovida do Upstream para Downstream deve ter:
+A transição Upstream → Downstream é mediada pelo **CommitmentGate** — gate formal convocado pelo trio PM + Tech Lead + Autor.
+
+Pré-condições mínimas para convocar o CommitmentGate:
+- Decision Package completo
+- Hipótese respondida com Evidence Threshold satisfeito (se declarado)
+- OBC Draft existe (ao menos o arquivo com nome e referência ao experimento)
+- BDD draft legível
+
+**Critério de verificabilidade do Decision Package:** um membro do trio que não participou do experimento deve conseguir ler o Decision Package e chegar às mesmas conclusões sem contexto verbal adicional. Se o Decision Package requer explicação oral para ser compreendido, ele não está pronto.
+
+Após o CommitmentGate com outcome **Promover**:
 
 1. BDD Feature movida de `prodops/artifacts/experiments/<NNN-slug>/features/` para `prodops/artifacts/bdd/`
-2. OBC movido de `prodops/artifacts/experiments/<NNN-slug>/obcs/` para `prodops/artifacts/obcs/`
+2. OBC movido de `prodops/artifacts/experiments/<NNN-slug>/obcs/` para `prodops/artifacts/obcs/` (estado: Refining)
 3. Entrada no Iteration Plan em `prodops/artifacts/plans/iteration-plan.md`
 4. Reliability Plan atualizado em `prodops/framework/journeys/assessment/reliability-plans/`
 
-→ [Processo completo de promoção](../journeys/discovery/README.md#processo-de-promoção-para-downstream)
+→ [Processo completo e Outcomes Canônicos](../journeys/discovery/README.md#commitmentgate--transição-upstream--downstream)
+
+
+---
+
+→ **Próximo:** [Modo Downstream](downstream.md)

@@ -165,6 +165,71 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 
 ---
 
+## Product Intent
+
+**Definition:** A Business Intent accepted and assigned to a specific product for implementation. In the local flow, it is the formalization of the intent at the Product Repository level — the product equivalent of a platform Business Intent.
+
+**Purpose:** Track a product intent with its own identity when the demand originates locally (Product Tracking List → Owner Approval) or when a Global OBC is partitioned and a share of the responsibility is assigned to this product.
+
+**Distinction from Business Intent:** The Business Intent is a platform entity (lives in the BIB, owned by the Portfolio). The Product Intent is a product entity (lives in the Product Backlog, owned by the Product Owner). When the flow is local, the Product Intent can exist without a corresponding Business Intent in the BIB.
+
+**Relationship with other concepts:** Can originate from an OBC Partitioning (descendant of a Business Intent) or be created directly via Owner Approval (local flow). Has a Local OBC as its contract document. See [`obc.md`](obc.md) and [`backlogs.md`](backlogs.md).
+
+---
+
+## Commitment
+
+**Definition:** The formal act of assuming delivery responsibility over a Product Intent or capability. The Commitment is produced by the CommitmentGate with outcome **Promote** — it is the event that transitions the execution mode from Upstream (exploration) to Downstream (commitment).
+
+**What changes with the Commitment:** Before the Commitment, the work is about reducing uncertainty — the cost of reversal is manageable. After the Commitment, the work is about honoring what was promised — breaking the commitment has a real cost. The rigor shifts from advisory to blocking.
+
+**The Commitment is NOT:**
+- An approval meeting (the CommitmentGate is the mechanism; the Commitment is the result)
+- A prioritized backlog item
+- The start of Delivery (the Commitment declares Downstream; Delivery begins at Bootstrap.Started)
+
+**Verifiability:** A Commitment is verifiable when there is a CommitmentGate record in `upstream-trail.md` with the date, participants (trio PM + Tech Lead + Author) and documented outcome. Without this record, the Commitment did not formally exist — even if Downstream work has already begun.
+
+**Relationship with other concepts:** Produced by the CommitmentGate. Transitions the OBC from Draft to Refining (Moment 2). Opens Downstream Declared. See [`execution-model/upstream.md`](execution-model/upstream.md) and [`execution-model/downstream.md`](execution-model/downstream.md).
+
+---
+
+## Evidence
+
+**Definition:** Verifiable artifact that supports a claim about system behavior or business result. Evidence makes claims verifiable by third parties — without it, any delivery claim is merely declared intent.
+
+**Two evidence contexts:**
+
+| Context | What it is | Where it lives |
+|---|---|---|
+| **Upstream Evidence** | Produced by experiments to answer hypotheses. Includes: executable outputs of experiments, spike results, benchmarks, prototype data. Composes the Evidence Package that grounds the Decision Package for the CommitmentGate. | `prodops/artifacts/experiments/<NNN-slug>/evidence/` |
+| **Downstream Evidence** | Produced by the Delivery journey to verify the assumed commitment. Includes: Release Trail (append-only), Observable Events emitted at each phase, quality gate results, extended DORA Metrics. | `prodops/artifacts/trails/sessions/`, Observable Events in runtime |
+
+**Evidence Threshold:** Criterion declared at the beginning of an Upstream experiment that defines when the collected evidence is sufficient to bring the Decision Package to the CommitmentGate. Optional, but recommended. See [`execution-model/upstream.md`](execution-model/upstream.md).
+
+**Evidence Package:** The set of Upstream evidence that composes the justification for the CommitmentGate. Mandatory part of the Decision Package.
+
+**Relationship with other concepts:** Upstream Evidence feeds the CommitmentGate. Downstream Evidence verifies the committed OBC and feeds the Assessment. See [`execution-model/upstream.md`](execution-model/upstream.md), [`dora-metrics.md`](dora-metrics.md) and [`journeys/assessment/README.md`](journeys/assessment/README.md).
+
+---
+
+## Outcome
+
+**Definition:** The verified result of a delivery after it enters sustained operation. The Outcome is not the delivery itself — it is the confirmation, with real operational evidence, that the committed result was achieved.
+
+**Two Outcome planes:**
+
+| Plane | What it is | How to verify |
+|---|---|---|
+| **Business Outcome** | The business result that the Global OBC committed to — KPIs, business metrics, value generated for the user or the organization | Business metrics measured in production after the OBC reaches Released; reported via Assessment |
+| **Product Outcome** | The verifiable technical behavior of the product after delivery — Observable Events emitted, SLOs satisfied, DORA Metrics within target | Observable Events in runtime, observability dashboards, Release Trail |
+
+**Distinction from Delivery:** Delivery produces delivered software. The Outcome verifies, in real operational time, whether that software produced the committed result. An OBC can reach Released without the Business Outcome being confirmed — Outcome verification requires operational time and evidence collection.
+
+**Relationship with other concepts:** The Outcome is verified when the OBC is in Released state and there is collected operational evidence. Assessment is the journey responsible for evaluating Outcomes over time. See [`obc.md`](obc.md), [`dora-metrics.md`](dora-metrics.md) and [`journeys/assessment/README.md`](journeys/assessment/README.md).
+
+---
+
 ## Product Stage
 
 **Definition:** Classification of a product's maturity moment within the ProdOps lifecycle. Defines which delivery metrics carry the most weight and what the team's focus should be at that point.
@@ -254,7 +319,7 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 
 ## Conception
 
-**Definition:** Phase covering the period from the emergence of a Business Signal to entry into the Product Backlog. The Business Signal exists as a possibility — the Product Owner has not yet made a commitment.
+**Definition:** Lifecycle Stage covering the period from the emergence of a Business Signal to entry into the Product Backlog. The Business Signal exists as a possibility — the Product Owner has not yet made a commitment.
 
 **Central question:** Is there real value here?
 
@@ -272,19 +337,19 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 
 ## Inception
 
-**Definition:** Phase covering the period from entry into the Product Backlog until the Local OBC reaches the Committed state (Iteration Backlog). The Product Owner has made a formal commitment to investigate.
+**Definition:** Lifecycle Stage covering the period from entry into the Product Backlog until the Local OBC reaches the Readiness state (Iteration Backlog). The Product Owner has made a formal commitment to investigate.
 
 **Central question:** Is the Product Owner committing attention and capacity to investigate this now?
 
 **Backlogs:** Product Backlog → Icebox → Iteration Backlog.
 
-**Local OBC state:** Draft → Refining (Icebox) → Committed (Iteration Backlog).
+**Local OBC state:** Draft → Refining (Icebox) → Readiness (Iteration Backlog).
 
 **Commitment:** Formal. Any closure requires a traceable learning record in the OBC.
 
 **Execution mode:** Upstream or Downstream — they are **modes**, not phases. Defined by the Product Owner when accepting the Business Intent into the Product Backlog. May change during Inception.
 
-**Exit boundary:** Assessment Review approved, Local OBC in Committed state, BDD Feature committed — entry into the Iteration Backlog.
+**Exit boundary:** Assessment Review approved, Local OBC in Readiness state, BDD Feature committed — entry into the Iteration Backlog.
 
 **Relationship with other concepts:** See [`phases.en.md`](phases.en.md), [`backlogs.en.md`](backlogs.en.md).
 
@@ -354,6 +419,25 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 
 ---
 
+## Trio (CommitmentGate)
+
+**Definition:** Minimum mandatory group for conducting the CommitmentGate and Diligence Sync: PM, Tech Lead, and Experiment Author. No two-person subset is sufficient.
+
+**Epistemic rationale:** Each role has a distinct blind spot that is orthogonal to the others:
+- **PM:** knows business context and strategic urgency, but tends to underestimate technical complexity and implementation risks.
+- **Tech Lead:** has technical vision of the solution, but lacks strategic pressure and may prioritize technical elegance over business value.
+- **Author:** has investigation depth (ran the experiment), but has confirmation bias — tends to interpret ambiguous evidence as favorable to the hypothesis.
+
+The three blind spots are **orthogonal**: no pair of two covers the third. The Trio is not a bureaucratic ritual — it is the minimum structure that ensures all three failure angles are covered simultaneously.
+
+**When mandatory:** CommitmentGate (Downstream Moment 1) and Diligence Sync / Readiness Gate (Downstream Moment 3).
+
+**Participation rule:** All three must be present (or have recorded their position asynchronously with justification). The absence of any one invalidates the gate.
+
+**Relationship with other concepts:** See [`execution-model/downstream.en.md`](execution-model/downstream.en.md), [`skills/commitment/SKILL.en.md`](../skills/commitment/SKILL.en.md).
+
+---
+
 ## OBC (Observable Business Contract)
 
 **Definition:** The living contract representing a business intent throughout its entire lifecycle. It is the source of truth for the work — connecting business, product, architecture, engineering, operation, observability, and reliability.
@@ -362,7 +446,7 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 - **Global OBC** — strategic, belongs to BIB/Portfolio, covers the entire business intent.
 - **Local OBC** — product-specific, belongs to one Product Backlog, specializes/partitions the Global OBC.
 
-**States (contract maturity):** Draft → Refining → Committed → In Delivery → Operational → Archived.
+**States (contract maturity):** Draft → Refining → Readiness → In Delivery → Released → Archived.
 
 **Creation:** Born when a Business Intent is accepted. There is no OBC for Business Signals — the OBC is only born from Business Intents. In the global flow, a **Global OBC Draft** is born upon entry into the Business Intent Backlog. In the local flow, a **Local OBC Draft** is born upon entry into the Product Backlog (either via OBC Partitioning or direct local approval).
 
@@ -392,7 +476,7 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 
 **Location:** Platform portfolio repository (external to product repositories).
 
-**Lifecycle:** Draft → Refining (during Discovery in BIB) → Operational (after all derived Local OBCs are in production) → Archived
+**Lifecycle:** Draft → Refining (during Discovery in BIB) → Released (after all derived Local OBCs are in production) → Archived
 
 **Owner:** Portfolio PM
 
@@ -421,7 +505,7 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 
 **Location:** `prodops/artifacts/obcs/<slug>.md` (when committed)
 
-**Lifecycle:** Draft → Refining (Icebox) → Committed (Iteration Backlog) → In Delivery → Operational (Operation) → Archived
+**Lifecycle:** Draft → Refining (Icebox) → Readiness (Iteration Backlog) → In Delivery → Released (Operation) → Archived
 
 **Owner:** Product Manager + Tech Lead of the product
 
@@ -480,7 +564,7 @@ The four hierarchical levels that compose the ProdOps ecosystem. See [operating-
 |---|---|---|
 | **Exploration** | Flow step | What happens: uncertainty reduction between Intent and OBC |
 | **Discovery** | Journey | The name of the Framework journey that implements Exploration |
-| **Upstream / Downstream** | Execution Mode | The commitment level and rigor applied during Discovery |
+| **Upstream / Downstream** | Execution Mode | The execution mode that modulates all 5 journeys — defines the type of commitment and corresponding rigor |
 
 Exploration operates on OBC Drafts that were born at the Business Intent Backlog (global flow) or Product Backlog (local flow) and are being refined in the Icebox.
 
@@ -614,6 +698,16 @@ See [`flow.en.md`](flow.en.md), [`journeys/discovery/README.en.md`](journeys/dis
 
 ---
 
+## Questions to Answer
+
+**Definition:** Mandatory section of `experiment.md` listing the investigation questions that the experiment must answer for the CommitmentGate to emit the Promote outcome. Each Question to Answer must be falsifiable — formulated so the experiment can answer it with observable evidence.
+
+**Canonical location:** Section inside `prodops/artifacts/experiments/<NNN-slug>/experiment.md`.
+
+**Relationship with epistemic conditions:** Condition S3 (epistemic dead-end) is detected when one or more Questions to Answer are marked as "unanswerable with available evidence" and no hypothesis reformulation or alternative evidence path is identified. See [`execution-model/upstream.en.md`](execution-model/upstream.en.md).
+
+---
+
 ## Reliability Plan
 
 **Definition:** Product of the transversal Assessment journey that defines risks, SLOs, and mitigation actions for a committed item. Lives in `prodops/artifacts/plans/reliability/`.
@@ -674,7 +768,7 @@ See [`flow.en.md`](flow.en.md), [`journeys/discovery/README.en.md`](journeys/dis
 
 **Three views of the Product Backlog:**
 - **Icebox** — items in Discovery/Exploration (state: Refining)
-- **Iteration Backlog** — items ready for Delivery (state: Committed)
+- **Iteration Backlog** — items ready for Delivery (state: Readiness)
 - **Release** — items grouped by release version
 
 **After entry, the origin no longer matters.** All items follow the same journey: Icebox → Iteration Backlog → Iteration Plan → Delivery.
@@ -685,7 +779,7 @@ See [`flow.en.md`](flow.en.md), [`journeys/discovery/README.en.md`](journeys/dis
 
 ## Icebox
 
-**Definition:** A **view of the Product Backlog** representing items still being prepared for Delivery. The functional, technical, and operational Discovery needed occurs here. Goal: produce a Committed Local OBC ready for Delivery. Artifact: `prodops/artifacts/product/backlogs/icebox-backlog.md`.
+**Definition:** A **view of the Product Backlog** representing items still being prepared for Delivery. The functional, technical, and operational Discovery needed occurs here. Goal: produce a Local OBC in Readiness state ready for Delivery. Artifact: `prodops/artifacts/product/backlogs/icebox-backlog.md`.
 
 **Nature:** View — not a separate queue. Items do not leave the Product Backlog when in this view.
 
@@ -693,17 +787,17 @@ See [`flow.en.md`](flow.en.md), [`journeys/discovery/README.en.md`](journeys/dis
 
 **Question:** What is still being prepared for Delivery?
 
-**Relationship with other concepts:** View over the Product Backlog. Items advance to the Iteration Backlog when Local OBC reaches Committed state. See [`backlogs.en.md`](backlogs.en.md).
+**Relationship with other concepts:** View over the Product Backlog. Items advance to the Iteration Backlog when Local OBC reaches Readiness state. See [`backlogs.en.md`](backlogs.en.md).
 
 ---
 
 ## Iteration Backlog
 
-**Definition:** A **view of the Product Backlog** representing items with a Committed Local OBC, ready for immediate Delivery. Not a refinement backlog — refinement happens in the Icebox. The only remaining decision is the Product Owner's priority. Artifact: `prodops/artifacts/product/backlogs/iteration-backlog.md`.
+**Definition:** A **view of the Product Backlog** representing items with a Local OBC in Readiness state, ready for immediate Delivery. Not a refinement backlog — refinement happens in the Icebox. The only remaining decision is the Product Owner's priority. Artifact: `prodops/artifacts/product/backlogs/iteration-backlog.md`.
 
 **Nature:** View — not a separate queue. Items do not leave the Product Backlog when in this view.
 
-**OBC state in this view:** Committed (ready for Delivery — criteria validated and approved)
+**OBC state in this view:** Readiness (ready for Delivery — criteria validated and verified by third parties)
 
 **Question:** What is ready to be developed?
 
@@ -835,6 +929,120 @@ See [`prodops/framework/execution-model/downstream.en.md`](execution-model/downs
 
 ---
 
+## Acceptable Residual Uncertainty
+
+**Definition:** Uncertainty that remains at the CommitmentGate and is explicitly declared as acceptable by the trio. Upstream does not need to eliminate all uncertainty for the CommitmentGate to proceed — what is "acceptable" is the trio's collective judgment.
+
+**Critical rule:** Residual uncertainty must be declared in the Decision Package. Risks not declared at the CommitmentGate are risks managed without visibility — the Gate can no longer act on what was not recorded.
+
+**Relation to the Readiness Gate:** the residual uncertainty declared at the CommitmentGate is part of the context that the Readiness Gate verifies before authorizing Delivery.
+
+---
+
+## Blocking Rigor
+
+**Definition:** Characteristic of Downstream mode. Gates must be satisfied before advancing — work stops until conditions are met. There is no Gate bypass; there is only the Waiver, which is an **explicit and recorded** bypass.
+
+**Contrast:** see Non-blocking Rigor (Upstream mode).
+
+**Practical consequence:** in Downstream, the AgentCode or the engineer cannot advance to the next phase without the Gate of the previous phase being satisfied. The block is the guarantee — not an obstacle.
+
+---
+
+## Commitment Rigor
+
+**Definition:** Regime applied in Downstream mode. Oriented toward compliance verification, preservation of the assumed commitment, change control, and generation of outcome evidence. Characteristic questions: "Is what was committed being delivered?" and "Is there verifiable evidence of each step?".
+
+**Contrast:** see Exploration Rigor (Upstream mode).
+
+---
+
+## Controlled Production
+
+**Definition:** Deploy to a real production environment performed in Upstream mode, without the CommitmentGate having been executed. Requires: explicit trio authorization, immediate rollback available, and observations recorded in the upstream-trail.
+
+**Distinction from Promotion:** Controlled Production does not transfer the capability to Downstream. The OBC remains in Draft or Refining; the delivery commitment has not been assumed. The code reaches production; the capability remains in exploration.
+
+**When to use:** validation of hypotheses that require real traffic and cannot be reproduced in an isolated or sandbox environment.
+
+---
+
+## Cycle Report
+
+**Definition:** Output of the retrospective Assessment Sync at the end of a cycle. Synthesis of what the cycle revealed about process health: anti-patterns detected, diagnostic signals activated, causes identified, and recommendations for the next cycle.
+
+**Produced by:** Assessment Sync (Synthesize → Report phase).
+
+**Typical content:** Gate Failure Rate patterns, correlations between WIP and TTE, recurring anti-patterns, and process adjustment proposals for the next cycle.
+
+**Do not confuse with:** Release Trail (evidence of a specific delivery) or Decision Package (evidence of a specific experiment).
+
+---
+
+## Discovery in Downstream
+
+**Type:** Mode anti-pattern.
+
+**Definition:** Exploration performed after a decision that carries operational, economic, or temporal commitment, without recognizing that the cost of being wrong has changed. Occurs when the team treats Downstream work as if it were Upstream — deferring decisions, expanding scope, or revisiting already-committed hypotheses without formally recording the regression.
+
+**Distinction:** Discovery in Downstream is not the same as the Discovery journey executed in Downstream mode (which is legitimate and has mandatory gates). The anti-pattern is informal exploration within an assumed commitment.
+
+**Diagnostic signal:** OBC in In Delivery state with open hypotheses that should have been resolved before the CommitmentGate.
+
+---
+
+## Exploration Rigor
+
+**Definition:** Regime applied in Upstream mode. Oriented toward evidence quality, learning, and reduction of relevant uncertainty. Characteristic questions: "Is the hypothesis falsifiable?" and "Is the evidence produced verifiable by someone who did not participate in the experiment?".
+
+**Contrast:** see Commitment Rigor (Downstream mode).
+
+**Do not confuse with the absence of rigor:** exploration rigor is as demanding as commitment rigor — the difference is what it demands. In Upstream, rigor applies to the epistemic quality of evidence; in Downstream, to the fulfillment of the assumed commitment.
+
+---
+
+## Mode Coexistence
+
+**Definition:** State in which the same team simultaneously operates in different modes for different work objects. Example: an experiment in Upstream (EXP-007) running in parallel with an item in Downstream (DS-61). Each work object maintains its own mode, gates, and rigor — coexistence is expected and operationally normal.
+
+**Rule:** mode is a property of the work object, not of the team. A team can have items in Upstream, Refining, and In Delivery simultaneously. What cannot occur is a single work object with mode ambiguity.
+
+---
+
+## Non-blocking Rigor
+
+**Definition:** Characteristic of Upstream mode. Practices available and recommended, but not mandatory conditions that block advancement. The engineer decides which Skills to use; no Gates block the next step.
+
+**Contrast:** see Blocking Rigor (Downstream mode).
+
+**Practical consequence:** in Upstream, the Code Agent can advance without satisfying formal preconditions. Accountability for exploration rigor is individual and of the trio — not enforced by the framework.
+
+---
+
+## Premature Promotion
+
+**Type:** Mode anti-pattern.
+
+**Definition:** Committing a Product Capability before having sufficient evidence, whether due to deadline pressure, unverified optimism, or omission of relevant uncertainty in the Decision Package.
+
+**Why it is problematic:** the CommitmentGate exists precisely to make Premature Promotion detectable and treatable. When it occurs without formal record, the cost of being wrong is silently absorbed in Downstream — without traceability or regression protocol activated.
+
+**Diagnostic signal:** OBC in In Delivery with active Discovery WIP for the same capability, or Evidence Threshold absent from the Decision Package that authorized the CommitmentGate.
+
+**Contrast with legitimate Promotion:** a Promotion with residual uncertainty explicitly declared in the Decision Package is legitimate — Premature Promotion is silent.
+
+---
+
+## Sandbox Deploy
+
+**Definition:** Upstream deploy on an ephemeral, isolated stack with no real customer traffic. Stack prefixed with `experiment-*`, destroyed at the end of the experiment (mandatory `teardown`). Used to validate hypotheses that require integration with real providers in a controlled environment.
+
+**Distinction from Controlled Production:** Sandbox Deploy never exposes real customer traffic. Controlled Production uses real production with rollback available.
+
+**Distinction from Downstream:** Sandbox Deploy does not produce deliverable artifacts, does not generate a Release Trail, and does not require an OBC in Readiness state.
+
+---
+
 ## Hack
 
 **Definition:** The coding phase in Upstream and Downstream. Second stage of CI Sync, follows Bootstrap. Defined in [`journeys/delivery/phases/hack/README.md`](journeys/delivery/phases/hack/README.en.md). Execution mechanics in [`skills/hack/`](../skills/hack/).
@@ -963,7 +1171,7 @@ See [`prodops/framework/execution-model/downstream.en.md`](execution-model/downs
 
 **Purpose:** Close the continuous improvement cycle of the Framework. While Delivery executes and Diligence organizes, Assessment evaluates — answering the central question: "Are we continuously improving our operational model?"
 
-**Cycles:** Assessment Sync (Collect → Analyze → Synthesize → Report — structured, on demand) and Assessment Async (Monitor → Alert — continuous, proactive).
+**Cycles:** Assessment Sync (Collect → Analyze → Synthesize → Report — structured, on demand) and Assessment Async (Monitor → Alert → Evolve — continuous, proactive). The Evolve phase incorporates new monitoring criteria from what previous cycles revealed as blind spots.
 
 **What it does not do:** Does not execute Delivery. Does not execute Diligence. Does not write to other Journeys' Timelines. Does not prioritize the backlog — it informs, it does not decide.
 
@@ -1127,3 +1335,8 @@ A single Work Item can affect multiple artifacts.
 **Cardinality:** A Business Intent can have zero or more Work Items across its lifetime. The absence of a Work Item is not a divergence — it only is a divergence when there is an active operation without a traceable Work Item.
 
 **Do not confuse with:** The Business Intent itself (permanent artifact). The OBC is a Markdown document — it does not have an Issue representation. See [knowledge-vs-execution.en.md](knowledge-vs-execution.en.md).
+
+
+---
+
+→ **Next:** [Principles](principles.en.md)

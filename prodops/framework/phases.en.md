@@ -1,6 +1,8 @@
-# Business Intent Phases: Conception and Inception
+# Business Intent Lifecycle Stages: Conception and Inception
 
-The lifecycle of a Business Intent before Delivery is organized into two distinct phases: **Conception** and **Inception**. They differ in commitment, governance, OBC state, and what can happen to the work.
+> **Terminological note:** Conception and Inception are **Lifecycle Stages** — stages of the Business Intent lifecycle before the Delivery journey. They are conceptually distinct from the **Delivery Phases** (Bootstrap, Hack, Sync, Finish, Ship, Validate, Promote) and from the **Diligence Phases** (Capture, Attach, Inspect, etc.). When ambiguity exists, use the explicit qualifier: "Lifecycle Stage" rather than just "phase". See [ontology.en.md](ontology.en.md).
+
+The lifecycle of a Business Intent before Delivery is organized into two distinct stages: **Conception** and **Inception**. They differ in commitment, governance, OBC state, and what can happen to the work.
 
 ---
 
@@ -31,22 +33,22 @@ The two flows are independent. A signal does not need to go through the global f
 
 ## Inception
 
-**Period:** from entry into the Product Backlog until the Local OBC reaches the Committed state (Iteration Backlog).
+**Period:** from entry into the Product Backlog until the Local OBC reaches the Readiness state (Iteration Backlog).
 
 **Backlogs involved:**
-- Product Backlog (source of truth) — with views: Icebox (Refining) → Iteration Backlog (Committed)
+- Product Backlog (source of truth) — with views: Icebox (Refining) → Iteration Backlog (Readiness)
 
 **Central question:** Is the Product Owner committing attention and capacity to investigate this now?
 
-**Governance:** Product Owner (formal acceptance and execution mode) and Tech Lead (Assessment Review).
+**Governance:** Product Owner (formal acceptance and execution mode). CommitmentGate (Trio: PM + Tech Lead + Author) decides entry into Downstream; Readiness Gate (Diligence Sync — PM + Tech Lead) validates prerequisites before Delivery.
 
-**OBC state (Local OBC):** Draft → Refining (Icebox) → Committed (Iteration Backlog).
+**OBC state (Local OBC):** Draft → Refining (Icebox) → Readiness (Iteration Backlog).
 
 **Commitment:** Formal. The Product Owner has committed to investigate. Any closure from this point forward requires an explicit learning record in the OBC.
 
 **Execution mode:** Upstream or Downstream — they are **modes**, not phases. The mode is defined by the Product Owner when accepting the Business Intent into the Product Backlog and may change throughout Inception. Upstream is used for high uncertainty; Downstream for sufficient clarity with mandatory gates. An item may start Upstream and, after reducing uncertainty, transition to Downstream without changing phases.
 
-**What ends Inception:** Assessment Review approved, Local OBC in Committed state, BDD Feature committed — item reaches the "ready" state in the Product Backlog (Iteration Backlog view).
+**What ends Inception:** Readiness Gate (Diligence Sync) approved, Local OBC in Readiness state, BDD Feature committed — item reaches the "ready" state in the Product Backlog (Iteration Backlog view).
 
 ---
 
@@ -88,8 +90,8 @@ INCEPTION
   (Local OBC born as Draft if it doesn't exist yet — local flow)
     │              │
     │  [view]      ├─ Icebox [Refining]
-    │              └─ Iteration Backlog [Committed]
-    │  (Assessment Review: PM + Tech Lead validates the transition)
+    │              └─ Iteration Backlog [Readiness]
+    │  (Readiness Gate: Diligence Sync — PM + Tech Lead)
          │
          ▼
   DELIVERY
@@ -101,7 +103,7 @@ INCEPTION
 |---|---|---|
 | Backlogs | Tracking Lists, Business Intent Backlog | Product Backlog, Icebox (VIEW), Iteration Backlog (VIEW) |
 | Governance | Portfolio PM (global) / local owner | Product Owner + Tech Lead |
-| OBC | Does not exist → Global OBC Draft (BIB) / Local OBC Draft (Product Backlog) | Draft → Refining → Committed |
+| OBC | Does not exist → Global OBC Draft (BIB) / Local OBC Draft (Product Backlog) | Draft → Refining → Readiness |
 | Discarding | No formal record required | Requires a learning record in the OBC |
 | Execution mode | N/A | Upstream or Downstream (modes, not phases) |
 
@@ -115,3 +117,8 @@ INCEPTION
 → [Backlog Hierarchy](backlogs.en.md)
 → [Glossary](glossary.en.md)
 → [Execution Model](execution-model/README.md)
+
+
+---
+
+→ **Next:** [OBC — Observable Business Contract](obc.en.md)

@@ -2,6 +2,7 @@
 name: hack
 description: Execute implementation work with TDD. Use when changing code, behavior, contracts, tests, or release artifacts as part of a ProdOps-backed task. Emits Hack.Started and Hack.Completed via prodops_emit_event.
 ---
+<!-- MATERIALIZED FILE — prodops/skills/hack/SKILL.en.md -->
 
 # HACK
 
@@ -42,7 +43,7 @@ criteria.
 
 ## Preconditions
 
-1. `prodops/skills/prodops-emit-event/SKILL.en.md` has been read and the agent
+1. `prodops/skills/prodops-emit-event/SKILL.md` has been read and the agent
    understands how to invoke the tool.
 2. The tool is available at `prodops/runtime/tools/emit-event/scripts/emit-event`.
 
@@ -120,7 +121,7 @@ Feature listed in Required context above.
 `start → tdd → commit` are **sequential steps**. Security, quality, and
 documentation validations are **not** extra steps — they are transversal and run
 inside each cycle's Yellow Bar. See
-[`../../framework/journeys/delivery/phases/hack/README.md`](../../framework/journeys/delivery/phases/hack/README.md#steps-sequenciais-vs-validações-transversais).
+[`../../../prodops/framework/journeys/delivery/phases/hack/README.md`](../../../prodops/framework/journeys/delivery/phases/hack/README.md#steps-sequenciais-vs-validações-transversais).
 
 ## Quality Gates (mandatory — cycle exit criteria)
 
@@ -137,9 +138,9 @@ next step — when every gate below is satisfied:
 | ProdOps artifacts | Event Storming / architecture updated when impacted | see [tdd step](steps/tdd/SKILL.md) |
 
 These gates are the minimum to commit. The canonical checklist lives in
-[`../../framework/journeys/delivery/phases/hack/quality-gates.md`](../../framework/journeys/delivery/phases/hack/quality-gates.md).
+[`../../../prodops/framework/journeys/delivery/phases/hack/quality-gates.md`](../../../prodops/framework/journeys/delivery/phases/hack/quality-gates.md).
 Release-blocking gates (what blocks merge) live in
-[`../../framework/journeys/delivery/phases/finish/quality-gates.md`](../../framework/journeys/delivery/phases/finish/quality-gates.md).
+[`../../../prodops/framework/journeys/delivery/phases/finish/quality-gates.md`](../../../prodops/framework/journeys/delivery/phases/finish/quality-gates.md).
 
 ## Phase: Hack.Completed
 

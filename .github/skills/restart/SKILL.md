@@ -6,7 +6,7 @@ description: Non-destructive restart of a Delivery Journey. Preserves the existi
      Source:    prodops/skills/restart/SKILL.md
      Player:    copilot
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:12Z
+     Generated: 2026-09-22T21:28:38Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill restart
 -->
 

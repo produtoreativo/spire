@@ -21,6 +21,13 @@ Identificar ou criar um contrato verificável (OpenAPI, AsyncAPI, BDD Feature, s
 ## 7. Observability as a deliverable
 Logs, erros, métricas e rastreabilidade fazem parte da implementação, não são complementos adicionados depois. Uma feature não está pronta se seu comportamento não puder ser observado em produção.
 
+A observabilidade cumpre papéis distintos nos dois modos de execução:
+
+- **No Downstream:** observabilidade *verifica o compromisso* — SLOs, DORA, Release Trail respondem à pergunta "o compromisso está sendo honrado?"
+- **No Upstream:** observabilidade *torna a incerteza explícita* — Evidence Package, Upstream Trail e Decision Package respondem à pergunta "o que sabemos, o que não sabemos e com que grau de confiança?"
+
+Em Downstream, a ausência de observabilidade é uma violação do compromisso. Em Upstream, a ausência de observabilidade é ausência de evidência — o experimento não pode produzir aprendizado verificável.
+
 ## 8. Evidence-based decisions
 Toda decisão de entrega — promover, reverter, aceitar risco — deve ser respaldada por evidência registrada. Ver [release-trail](../artifacts/trails/release-trail.md) e [operation/](journeys/operation/).
 
@@ -32,3 +39,38 @@ Código de produção não deve conter branches exclusivos de teste, hacks espec
 
 ## 11. Automation First
 Um agente deve sempre tentar executar uma ação ele mesmo antes de instruir um humano a fazê-la. Intervenção manual é último recurso (uma **Manual Exception** documentada), nunca o caminho padrão. Ordem canônica de tentativas: API → MCP → CLI → SDK → Browser Automation → Manual Exception apenas quando tudo mais falhar. Frases como "faça manualmente", "acesse a UI" ou "configure manualmente" são proibidas a menos que todas as opções de automação tenham sido demonstravelmente esgotadas e registradas em um Issue de rastreamento. Ver [automation-first.md](automation-first.md) para o fluxo de decisão completo.
+
+
+---
+
+---
+
+## Cadeia Fundamental
+
+O tipo de compromisso vigente determina o modo de execução; o modo determina o regime de rigor; o rigor determina o tipo de evidência exigida; a evidência viabiliza o controle. A seta não representa sequência temporal: representa a transformação progressiva do tipo de compromisso que governa o trabalho.
+
+```
+COMPROMISSO → MODO → RIGOR → EVIDÊNCIA → CONTROLE
+```
+
+Ver [`execution-model/README.md`](execution-model/README.md) para a distinção entre Upstream e Downstream, e [`glossary.md`](glossary.md#commitment) para a definição canônica de Commitment.
+
+---
+
+## Três Regimes de Ação
+
+Síntese dos três regimes que organizam o trabalho de produto no ProdOps. A seta não representa sequência temporal — representa o tipo de compromisso ativo em cada regime.
+
+```
+APRENDER → COMPROMETER → REALIZAR
+```
+
+- **APRENDER:** o trabalho é de redução de incerteza. Fracasso de hipótese é resultado legítimo — informa a próxima decisão. Modo Upstream.
+- **COMPROMETER:** transição formalizada pelo CommitmentGate. O tipo de rigor muda de advisory para bloqueante. O custo de ser errado aumenta.
+- **REALIZAR:** o trabalho é de honrar o prometido. Fracasso tem custo diferente do fracasso no regime de aprendizado. Modo Downstream.
+
+Ver [`execution-model/upstream.md`](execution-model/upstream.md) e [`execution-model/downstream.md`](execution-model/downstream.md).
+
+---
+
+→ **Próximo:** [Modelo Operacional](operating-model.md)

@@ -6,7 +6,7 @@ description: Close technical work by delivering a fully autonomous Pull Request.
      Source:    prodops/skills/finish/SKILL.md
      Player:    claude
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:06Z
+     Generated: 2026-09-22T21:28:23Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill finish
 -->
 

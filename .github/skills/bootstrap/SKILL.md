@@ -6,7 +6,7 @@ description: Prepare the local environment required by a ProdOps execution befor
      Source:    prodops/skills/bootstrap/SKILL.md
      Player:    copilot
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:01Z
+     Generated: 2026-09-22T21:27:58Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill bootstrap
 -->
 

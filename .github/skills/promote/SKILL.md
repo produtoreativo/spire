@@ -6,7 +6,7 @@ description: Promote the Feature from Staging to Sandbox (Release Candidate). Em
      Source:    prodops/skills/promote/SKILL.md
      Player:    copilot
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:11Z
+     Generated: 2026-09-22T21:28:37Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill promote
 -->
 

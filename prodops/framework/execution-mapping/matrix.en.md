@@ -53,7 +53,7 @@ Complete mapping of all Knowledge Space Artifacts against allowed operations, Gi
 | `Refine` | Issue, PR | Discovery | Upstream | OBC Draft updated; hypotheses recorded | PCE, TL |
 | `Explore` | Issue, Disc | Discovery | Upstream | Exploration results in OBC | PCE, SE |
 | `Review` | Issue, Disc | Discovery, Assessment | Upstream → Down | Review checklist; decision recorded | PO, TL |
-| `Approve → Committed` | Issue | Assessment | Downstream | OBC in Committed state; minimums validated | PO, TL |
+| `Approve → Readiness` | Issue | Assessment | Downstream | OBC in Readiness state; minimums validated | PO, TL |
 | `Prioritize` | Project Item | Discovery, Delivery | Both | Priority recorded in Project | PO |
 | `Split → Local OBCs` | Issue | Discovery | N/A | N Local OBC documents created | PPM, TLs |
 | `Promote → Product Backlog` | Issue | Discovery | N/A | Intent routed to Product Backlog | PPM, PO |
@@ -70,7 +70,7 @@ Complete mapping of all Knowledge Space Artifacts against allowed operations, Gi
 | `Create` | PR | Discovery | Upstream | OBC Draft in portfolio repository | PPM, TL |
 | `Refine` | PR, Issue | Discovery | Upstream | OBC evolved with new hypotheses and data | PPM, TL |
 | `Review` | Issue, Disc | Discovery, Assessment | Upstream | Comments and decisions recorded | PPM, TLs |
-| `Approve` | Issue | Assessment | Downstream | OBC in Committed state | PPM |
+| `Approve` | Issue | Assessment | Downstream | OBC in Readiness state | PPM |
 | `Update` | PR | Delivery, Operation | N/A | OBC updated with delivery/operation evidence | PPM, TL |
 | `Split` | Issue | Discovery | N/A | N Local OBCs created; traceability table updated | PPM, TLs |
 | `Archive` | PR | Operation | N/A | Closure note; Archived state | PPM |
@@ -86,7 +86,7 @@ Complete mapping of all Knowledge Space Artifacts against allowed operations, Gi
 | `Create` | PR | Discovery | Upstream | `artifacts/obcs/<slug>.md` in Draft state | PM, TL |
 | `Refine` | PR, Issue | Discovery, Assessment | Upstream | OBC in Refining state; criteria emerging | PM, TL, SE |
 | `Review` (Assessment) | Issue, Disc | Assessment | Upstream → Down | Assessment checklist completed | PM, TL |
-| `Approve` (→ Committed) | Issue | Assessment | Downstream | OBC in Committed state; minimums validated | PM, TL |
+| `Approve` (→ Readiness) | Issue | Assessment | Downstream | OBC in Readiness state; minimums validated | PM, TL |
 | `Implement` | PR | Delivery | Downstream | Code; BDD executed; PR approved | SE |
 | `Update` | PR | Delivery, Operation | Both | OBC updated with real evidence | SE, PM |
 | `Validate` | WF, Issue | Delivery | Downstream | CI pass; acceptance tests green | SE, PRE |
@@ -212,17 +212,70 @@ The Context Capsule (`prodops/artifacts/iterations/<version>/cards/<slug>/contex
 
 ---
 
+## Diligence — Canonical Entities
+
+> Added on 2026-07-24. See `prodops/framework/journeys/diligence/github-workspace.md`
+> and `prodops/framework/journeys/diligence/github-workspace-schema.yaml` for the full schema.
+>
+> **Principle:** Finding, Remediation, Waiver, Evidence, and Check are Knowledge Space entities.
+> Work Items represent operations on those entities — not the entities themselves.
+> Finding with no active Work Item = correct state. The Project must not create artificial Issues for visual coverage.
+
+### Finding
+
+| Operation | GitHub Resources | Journeys | Mode | Expected Evidence | Responsible |
+|---|---|---|---|---|---|
+| `Review` | Issue | Diligence | Async, Manual | Finding investigated; root cause identified; decision recorded in FND-* file | Diligence Owner, PRE |
+| `Validate` | Issue | Diligence | Async, Manual | Verification check executed; Evidence (EVD-*) referenced; Finding → Verified | PRE (independent) |
+| `Update` | PR | Diligence | Both | FND-* file updated with new information (status, severity, supplementary findings) | Diligence Owner |
+| `Close` | PR | Diligence | Both | Finding → Closed; closure note; Evidence referenced in file | Diligence Owner |
+
+**Never:** Finding is an Issue; Issue number as Finding ID; closing Issue = canonical Finding transition
+
+### Remediation
+
+| Operation | GitHub Resources | Journeys | Mode | Expected Evidence | Responsible |
+|---|---|---|---|---|---|
+| `Review` | Issue | Diligence | Async, Manual | Remediation evaluated; strategy approved or rejected; decision in RMD-* file | Diligence Owner, TL |
+| `Implement` | PR | Diligence | Async, Manual | Code or documentation corrected; RMD-* file → Implemented; Evidence (EVD-*) | SE |
+| `Validate` | Issue, PR | Diligence | Async, Manual | Verification check executed by independent verifier; Finding → Resolved/Verified | PRE (independent) |
+| `Update` | PR | Diligence | Both | RMD-* file updated (status, scope, approach) | Diligence Owner |
+
+**Never:** merged PR = Finding Verified; closing implementation Issue = complete Remediation without independent verification
+
+### Waiver
+
+| Operation | GitHub Resources | Journeys | Mode | Expected Evidence | Responsible |
+|---|---|---|---|---|---|
+| `Review` | Issue | Diligence | Async, Manual | Waiver evaluated; compensating controls reviewed; decision recorded | Diligence Owner, PO |
+| `Approve` | PR | Diligence | Manual | WVR-* file with approved_by, approved_at, expires_at filled; Evidence (EVD-*) from approval PR | PO (with authority) |
+| `Update` | PR | Diligence | Manual | WVR-* file updated (controls, justification) — does not extend expires_at without a new Waiver | Diligence Owner |
+
+**Never:** Waiver via label; approval by changing Issue status; extending expires_at without a new WVR-* file
+
+### Check (manual execution)
+
+| Operation | GitHub Resources | Journeys | Mode | Expected Evidence | Responsible |
+|---|---|---|---|---|---|
+| `Review` | Issue | Diligence | Manual | Check executed; result recorded; Finding created if failure detected; Evidence (EVD-*) | PRE, Diligence Owner |
+| `Reconcile` | Issue, PR | Diligence | Manual | Workspace reconciled with declared schema; before + after snapshot; DIL-WSP-001 executed | PE, Diligence Owner |
+| `Validate` | Issue | Diligence | Manual | Conformance check executed; Pass/Fail/Warning result recorded in Evidence (EVD-*) | PRE |
+
+**Never:** Check executed without Evidence; Check result as editable field in the Project
+
+---
+
 ## Summary by GitHub resource
 
 | Resource | Artifacts it can reference |
 |---|---|
-| **Issue** | Business Signal, Business Intent, Local OBC, Global OBC, Experiment, Risk Register, Reliability Plan, Evidence |
+| **Issue** | Business Signal, Business Intent, Local OBC, Global OBC, Experiment, Risk Register, Reliability Plan, Evidence, Finding, Remediation, Waiver, Check |
 | **Pull Request** | All artifacts that exist as Markdown files |
 | **Discussion** | Business Intent, Global OBC, Local OBC, Architecture, Experiment |
 | **Release** | Iteration Plan, Release Trail |
 | **Workflow** | BDD Feature, Local OBC, Reliability Plan |
 | **Milestone** | Iteration Plan |
-| **Project Item** | Business Intent (prioritization) |
+| **Project Item** | Business Intent (prioritization), Finding, Remediation, Waiver, Check (via Work Item) |
 
 ---
 

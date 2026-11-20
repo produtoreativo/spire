@@ -8,7 +8,7 @@ schema-version: "1"
      Source:    prodops/skills/prodops-emit-event/SKILL.md
      Player:    codex
      Generator: prodops/scripts/agents/materialize-skills.sh
-     Generated: 2026-08-25T13:10:10Z
+     Generated: 2026-09-22T21:28:35Z
      To update: bash prodops/scripts/agents/materialize-skills.sh --skill prodops-emit-event
 -->
 

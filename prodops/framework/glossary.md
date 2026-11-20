@@ -161,6 +161,71 @@ Os quatro níveis hierárquicos que compõem o ecossistema ProdOps. Ver [operati
 
 ---
 
+## Product Intent
+
+**Definição:** Uma Business Intent aceita e atribuída a um produto específico para implementação. No fluxo local, é a formalização da intenção no nível do Product Repository — o equivalente produto da Business Intent de plataforma.
+
+**Propósito:** Rastrear uma intenção de produto com identidade própria quando a demanda nasce localmente (Product Tracking List → Owner Approval) ou quando um Global OBC é particionado e uma parcela da responsabilidade é atribuída a este produto.
+
+**Distinção de Business Intent:** A Business Intent é uma entidade de plataforma (vive no BIB, é propriedade do Portfolio). A Product Intent é uma entidade de produto (vive no Product Backlog, é propriedade do Product Owner). Quando o fluxo é local, a Product Intent pode existir sem uma Business Intent correspondente no BIB.
+
+**Relação com outros conceitos:** Pode ser originada de um OBC Partitioning (descendente de uma Business Intent) ou criada diretamente via Owner Approval (fluxo local). Possui um Local OBC como documento de contrato. Ver [`obc.md`](obc.md) e [`backlogs.md`](backlogs.md).
+
+---
+
+## Commitment
+
+**Definição:** O ato formal de assumir responsabilidade de entrega sobre uma Product Intent ou capability. O Commitment é produzido pelo CommitmentGate com outcome **Promover** — é o evento que transforma o modo de execução de Upstream (exploração) para Downstream (compromisso).
+
+**O que muda com o Commitment:** Antes do Commitment, o trabalho é de redução de incerteza — o custo de reversão é controlável. Após o Commitment, o trabalho é de honra do que foi prometido — quebrar o compromisso tem custo real. O rigor muda de advisory para bloqueante.
+
+**O Commitment não é:**
+- Uma reunião de aprovação (o CommitmentGate é o mecanismo; o Commitment é o resultado)
+- Um item de backlog priorizado
+- O início da Delivery (o Commitment declara Downstream; a Delivery começa no Bootstrap.Started)
+
+**Verificabilidade:** Um Commitment é verificável quando há registro do CommitmentGate no `upstream-trail.md` com data, participantes (trio PM + Tech Lead + Autor) e outcome documentado. Sem esse registro, o Commitment não existiu formalmente — mesmo que o trabalho de Downstream tenha começado.
+
+**Relação com outros conceitos:** Produzido pelo CommitmentGate. Transita o OBC de Draft para Refining (Momento 2). Abre o Downstream Declared. Ver [`execution-model/upstream.md`](execution-model/upstream.md) e [`execution-model/downstream.md`](execution-model/downstream.md).
+
+---
+
+## Evidence
+
+**Definição:** Artefato verificável que suporta uma afirmação sobre comportamento do sistema ou resultado de negócio. A evidência torna afirmações verificáveis por terceiros — sem ela, qualquer claim sobre entrega é apenas intenção declarada.
+
+**Dois contextos de evidência:**
+
+| Contexto | O que é | Onde vive |
+|---|---|---|
+| **Upstream Evidence** | Produzida por experimentos para responder hipóteses. Inclui: saídas executáveis de experimentos, resultados de spikes, benchmarks, dados de protótipos. Compõe o Evidence Package que fundamenta o Decision Package do CommitmentGate. | `prodops/artifacts/experiments/<NNN-slug>/evidence/` |
+| **Downstream Evidence** | Produzida pela jornada Delivery para verificar o compromisso assumido. Inclui: Release Trail (append-only), Observable Events emitidos em cada fase, resultados de quality gates, métricas DORA Extended. | `prodops/artifacts/trails/sessions/`, Observable Events no runtime |
+
+**Evidence Threshold:** Critério declarado no início de um experimento Upstream que define quando a evidência coletada é suficiente para levar o Decision Package ao CommitmentGate. Opcional, mas recomendado. Ver [`execution-model/upstream.md`](execution-model/upstream.md).
+
+**Evidence Package:** O conjunto de evidências Upstream que compõe a justificativa para o CommitmentGate. Parte obrigatória do Decision Package.
+
+**Relação com outros conceitos:** Upstream Evidence alimenta o CommitmentGate. Downstream Evidence verifica o OBC comprometido e alimenta o Assessment. Ver [`execution-model/upstream.md`](execution-model/upstream.md), [`dora-metrics.md`](dora-metrics.md) e [`journeys/assessment/README.md`](journeys/assessment/README.md).
+
+---
+
+## Outcome
+
+**Definição:** O resultado verificado de uma entrega após sua entrada em operação continuada. O Outcome não é a entrega em si — é a confirmação, com evidência operacional real, de que o resultado comprometido foi alcançado.
+
+**Dois planos de Outcome:**
+
+| Plano | O que é | Como verificar |
+|---|---|---|
+| **Business Outcome** | O resultado de negócio que o Global OBC comprometeu — KPIs, métricas de negócio, valor gerado para o usuário ou para a organização | Métricas de negócio medidas em produção após o OBC atingir Released; reportado via Assessment |
+| **Product Outcome** | O comportamento técnico verificável do produto após a entrega — Observable Events emitidos, SLOs satisfeitos, DORA Metrics dentro do target | Observable Events no runtime, dashboards de observabilidade, Release Trail |
+
+**Distinção de Delivery:** A Delivery produz software entregue. O Outcome verifica, em tempo operacional real, se esse software produziu o resultado comprometido. Um OBC pode atingir Released sem que o Business Outcome tenha sido confirmado — a verificação de Outcome requer tempo de operação e coleta de evidência.
+
+**Relação com outros conceitos:** O Outcome é verificado quando o OBC está em estado Released e há evidência operacional coletada. O Assessment é a jornada responsável por avaliar Outcomes ao longo do tempo. Ver [`obc.md`](obc.md), [`dora-metrics.md`](dora-metrics.md) e [`journeys/assessment/README.md`](journeys/assessment/README.md).
+
+---
+
 ## Estágio de Produto
 
 **Definição:** Classificação do momento de maturidade de um produto dentro do ciclo de vida ProdOps. Define quais métricas de delivery têm maior peso e qual é o foco do time naquele período.
@@ -250,7 +315,7 @@ Os quatro níveis hierárquicos que compõem o ecossistema ProdOps. Ver [operati
 
 ## Concepção
 
-**Definição:** Fase que compreende o período desde o surgimento do Business Signal até a entrada no Product Backlog. O Business Signal existe como possibilidade — o Product Owner ainda não assumiu compromisso.
+**Definição:** Lifecycle Stage que compreende o período desde o surgimento do Business Signal até a entrada no Product Backlog. O Business Signal existe como possibilidade — o Product Owner ainda não assumiu compromisso.
 
 **Pergunta central:** Existe valor real aqui?
 
@@ -268,19 +333,19 @@ Os quatro níveis hierárquicos que compõem o ecossistema ProdOps. Ver [operati
 
 ## Inception
 
-**Definição:** Fase que compreende o período desde a entrada no Product Backlog até o Local OBC atingir o estado Committed (Iteration Backlog). O Product Owner assumiu compromisso formal de investigação.
+**Definição:** Lifecycle Stage que compreende o período desde a entrada no Product Backlog até o Local OBC atingir o estado Readiness (Iteration Backlog). O Product Owner assumiu compromisso formal de investigação.
 
 **Pergunta central:** O Product Owner está comprometendo atenção e capacidade para investigar isso agora?
 
 **Backlogs:** Product Backlog → Icebox → Iteration Backlog.
 
-**Estado do Local OBC:** Draft → Refining (Icebox) → Committed (Iteration Backlog).
+**Estado do Local OBC:** Draft → Refining (Icebox) → Readiness (Iteration Backlog).
 
 **Compromisso:** Formal. Qualquer encerramento exige registro de aprendizado rastreável no OBC.
 
 **Modo de execução:** Upstream ou Downstream — são **modos**, não fases. Definido pelo Product Owner ao aceitar a Business Intent no Product Backlog. Pode mudar ao longo da Inception.
 
-**Fronteira de saída:** Assessment Review aprovada, Local OBC em estado Committed, BDD Feature committed — entrada no Iteration Backlog.
+**Fronteira de saída:** Assessment Review aprovada, Local OBC em estado Readiness, BDD Feature committed — entrada no Iteration Backlog.
 
 **Relação com outros conceitos:** Ver [`phases.md`](phases.md), [`backlogs.md`](backlogs.md).
 
@@ -350,11 +415,30 @@ Os quatro níveis hierárquicos que compõem o ecossistema ProdOps. Ver [operati
 
 ---
 
+## Trio (CommitmentGate)
+
+**Definição:** Grupo mínimo obrigatório para a realização do CommitmentGate e da Diligence Sync: PM, Tech Lead e Autor do experimento. Nenhum subconjunto de dois é suficiente.
+
+**Rationale epistêmico:** Cada papel tem um ponto cego distinto e ortogonal aos demais:
+- **PM:** conhece o contexto de negócio e a urgência estratégica, mas tende a subestimar a complexidade técnica e os riscos de implementação.
+- **Tech Lead:** tem visão técnica da solução, mas não tem a pressão estratégica e pode priorizar elegância técnica em detrimento do valor de negócio.
+- **Autor:** tem profundidade de investigação (conduziu o experimento), mas tem viés de confirmação — tende a interpretar evidências ambíguas como favoráveis à hipótese.
+
+Os três pontos cegos são **ortogonais**: nenhum par cobre o terceiro. O Trio não é um ritual burocrático — é a estrutura mínima que garante que os três ângulos de falha sejam cobertos simultaneamente.
+
+**Quando é obrigatório:** CommitmentGate (Momento 1 do Downstream) e Diligence Sync / Readiness Gate (Momento 3 do Downstream).
+
+**Regra de participação:** Todos os três devem estar presentes (ou ter registrado sua posição assincronamente com justificativa). A ausência de qualquer um invalida o gate.
+
+**Relação com outros conceitos:** Ver [`execution-model/downstream.md`](execution-model/downstream.md), [`skills/commitment/SKILL.md`](../skills/commitment/SKILL.md).
+
+---
+
 ## OBC (Observable Business Contract)
 
 **Definição:** O contrato vivo que representa uma Business Intent durante todo o seu ciclo de vida. Existe em dois níveis: **Global OBC** (contrato de negócio estratégico, pertence ao BIB/Portfolio) e **Local OBC** (contrato de produto, pertence ao Product Backlog/Product Owner). Ver entradas separadas abaixo.
 
-**Estados (maturidade do contrato):** Draft → Refining → Committed → In Delivery → Operational → Archived.
+**Estados (maturidade do contrato):** Draft → Refining → Readiness → In Delivery → Released → Archived.
 
 **Criação:** Um OBC nasce APENAS quando uma Business Intent é aceita. O Global OBC nasce ao entrar no Business Intent Backlog. O Local OBC nasce após o Particionamento do OBC (fluxo global) ou ao entrar no Product Backlog (fluxo local). Não existe OBC para Business Signals — o OBC só nasce de Business Intents.
 
@@ -374,7 +458,7 @@ Os quatro níveis hierárquicos que compõem o ecossistema ProdOps. Ver [operati
 
 **Localização:** Repositório de portfólio da plataforma (externo a repositórios de produto).
 
-**Ciclo de vida:** Draft → Refining → Operational → Archived. Não desaparece após a decomposição — continua evoluindo.
+**Ciclo de vida:** Draft → Refining → Released → Archived. Não desaparece após a decomposição — continua evoluindo.
 
 **Relação com outros conceitos:** Decomposto em N Local OBCs pelo OBC Partitioning. Nunca use os termos "pai" ou "filho" — use decomposição/especialização/partição.
 
@@ -392,7 +476,7 @@ Os quatro níveis hierárquicos que compõem o ecossistema ProdOps. Ver [operati
 
 **Localização:** `prodops/artifacts/obcs/<slug>.md`
 
-**Ciclo de vida:** Draft → Refining → Committed → In Delivery → Operational → Archived.
+**Ciclo de vida:** Draft → Refining → Readiness → In Delivery → Released → Archived.
 
 **Não duplica:** quando houver Global OBC, seu conteúdo estratégico. Sempre referencia, nunca copia.
 
@@ -444,7 +528,7 @@ Os quatro níveis hierárquicos que compõem o ecossistema ProdOps. Ver [operati
 |---|---|---|
 | **Exploration** | Etapa do fluxo | O que acontece: redução de incerteza entre Intent e OBC |
 | **Discovery** | Jornada | O nome da jornada do Framework que implementa Exploration |
-| **Upstream / Downstream** | Execution Mode | O compromisso e o rigor aplicados durante Discovery |
+| **Upstream / Downstream** | Execution Mode | O modo de execução que modula todas as 5 jornadas — define o tipo de compromisso e o rigor correspondente |
 
 Ver [`flow.md`](flow.md), [`journeys/discovery/README.md`](journeys/discovery/README.md) e [`execution-model/upstream.md`](execution-model/upstream.md).
 
@@ -576,6 +660,16 @@ Ver [`flow.md`](flow.md), [`journeys/discovery/README.md`](journeys/discovery/RE
 
 ---
 
+## Questions to Answer
+
+**Definição:** Seção obrigatória do `experiment.md` que lista as perguntas de investigação que o experimento deve responder para que o CommitmentGate possa emitir outcome Promover. Cada Question to Answer deve ser falsificável — formulada de forma que o experimento possa respondê-la com evidências observáveis.
+
+**Localização canônica:** Seção do arquivo `prodops/artifacts/experiments/<NNN-slug>/experiment.md`.
+
+**Relação com condições epistêmicas:** A condição S3 (dead-end epistêmico) é detectada quando uma ou mais Questions to Answer são marcadas como "não respondíveis com evidências disponíveis" e nenhuma reformulação de hipótese ou rota alternativa de evidência é identificada. Ver [`execution-model/upstream.md`](execution-model/upstream.md).
+
+---
+
 ## Reliability Plan
 
 **Definição:** Produto da jornada transversal de Assessment que define riscos, SLOs e ações de mitigação para um item comprometido. Fica em `prodops/artifacts/plans/reliability/`.
@@ -597,6 +691,23 @@ Ver [`flow.md`](flow.md), [`journeys/discovery/README.md`](journeys/discovery/RE
 **Não contém:** OBC. Compromisso. Identificador permanente.
 
 **Relação com outros conceitos:** Primeiro nível do fluxo global. Business Signals avançam para o Business Intent Backlog quando reconhecidos como Business Intents. Ver [`backlogs.md`](backlogs.md).
+
+---
+
+## Readiness (estado do OBC)
+
+**Definição:** Estado do OBC que certifica que a Discovery Downstream produziu contrato completo e verificável por terceiros. Não representa a mudança de regime (que ocorre no Promover/Momento 2), mas a conclusão da Discovery: Elaboration.
+
+**Exige para ser declarado:**
+- Acceptance criteria verificáveis sem contexto verbal adicional
+- Métricas com baseline e target mensuráveis
+- Observable Events com dimensões mensuráveis definidas
+
+**Quando é atingido:** Readiness Gate aprovado (Momento 3 do protocolo de transição Downstream). OBC em `prodops/artifacts/obcs/<slug>.md` no estado Readiness.
+
+**Distinção de Refining:** o estado Refining indica que o contrato está sendo refinado. Readiness certifica que o refinamento está completo e o contrato é verificável.
+
+**Relação com outros conceitos:** Precede o estado In Delivery. Condição obrigatória para iniciar Bootstrap. Ver [`obc.md`](obc.md), [`execution-model/downstream.md`](execution-model/downstream.md) e [`skills/commitment/SKILL.md`](../skills/commitment/SKILL.md).
 
 ---
 
@@ -624,15 +735,33 @@ Ver [`flow.md`](flow.md), [`journeys/discovery/README.md`](journeys/discovery/RE
 
 ---
 
+## Product Intent Backlog (PIB)
+
+**Definição:** O Product Backlog quando referenciado como contentor de Product Intents com OBC associado. Termo canônico nos contextos onde é necessário distinguir o backlog de produto do Business Intent Backlog (BIB) da plataforma. PIB e Product Backlog são o mesmo artefato físico — a distinção é de ênfase semântica.
+
+**Pergunta:** O que está no Product Backlog deste produto, como Product Intents com OBC?
+
+**Views:** Icebox (Refining) · Plano de Experimento (Upstream ativos) · Iteration Backlog (Readiness) · Release (agrupado por versão).
+
+**Relação com outros conceitos:** Equivalente produto do Business Intent Backlog (BIB) da plataforma. Ver [`backlogs.md`](backlogs.md).
+
+---
+
+## BIB
+
+**Definição:** Abreviação de **Business Intent Backlog** — o backlog estratégico da plataforma que representa Business Intents aceitas para Discovery. Ver entrada `## Business Intent Backlog`.
+
+---
+
 ## Product Backlog
 
-**Definição:** Backlog de produto que representa todo trabalho formalmente aceito pelo Product Owner. Contém exclusivamente **Business Intents** — cada Intent possui um Local OBC como documento de contrato. Nunca contém Business Signals isolados nem Global OBCs. Ponto de entrada único do produto para o ciclo de Delivery. Views: **Icebox** (Refining), **Iteration Backlog** (Committed) e **Release** (agrupado por versão).
+**Definição:** Backlog de produto que representa todo trabalho formalmente aceito pelo Product Owner. Contém exclusivamente **Business Intents** — cada Intent possui um Local OBC como documento de contrato. Nunca contém Business Signals isolados nem Global OBCs. Ponto de entrada único do produto para o ciclo de Delivery. Views: **Icebox** (Refining), **Iteration Backlog** (Readiness) e **Release** (agrupado por versão).
 
 **Pergunta:** O que foi oficialmente aceito pelo Product Owner?
 
 **Dois caminhos de entrada:** (1) Local OBC via OBC Partitioning, direcionado pelo Portfolio após Discovery no BIB (fluxo global); (2) Business Signal promovido via Premortem + Análise de Risco Preliminar com Owner Approval (Local OBC Draft nasce aqui, fluxo local).
 
-**Após a entrada, a origem deixa de importar.** Todos os itens seguem a mesma jornada: Icebox (Refining) → Iteration Backlog (Committed) → Iteration Plan (In Delivery) → Operation (Operational).
+**Após a entrada, a origem deixa de importar.** Todos os itens seguem a mesma jornada: Icebox (Refining) → Iteration Backlog (Readiness) → Iteration Plan (In Delivery) → Operation (Released).
 
 **Relação com outros conceitos:** Ponto de convergência dos fluxos global e local. Nunca recebe Business Signals diretamente — apenas OBCs. Ver [`backlogs.md`](backlogs.md).
 
@@ -648,17 +777,17 @@ Ver [`flow.md`](flow.md), [`journeys/discovery/README.md`](journeys/discovery/RE
 
 **Natureza:** View — não é uma fila separada. Itens permanecem no Product Backlog e mudam de estado.
 
-**Relação com outros conceitos:** View sobre o Product Backlog. Itens transitam para a view Iteration Backlog quando o Local OBC atinge o estado Committed. Ver [`backlogs.md`](backlogs.md).
+**Relação com outros conceitos:** View sobre o Product Backlog. Itens transitam para a view Iteration Backlog quando o Local OBC atinge o estado Readiness. Ver [`backlogs.md`](backlogs.md).
 
 ---
 
 ## Iteration Backlog
 
-**Definição:** View sobre o Product Backlog que representa itens com Local OBC no estado **Committed**, prontos para Delivery imediata. Não é um backlog de refinamento — refinamento acontece no estado Icebox. A única decisão restante é a prioridade do Product Owner. Artefato: `prodops/artifacts/product/backlogs/iteration-backlog.md`.
+**Definição:** View sobre o Product Backlog que representa itens com Local OBC no estado **Readiness**, prontos para Delivery imediata. Não é um backlog de refinamento — refinamento acontece no estado Icebox. A única decisão restante é a prioridade do Product Owner. Artefato: `prodops/artifacts/product/backlogs/iteration-backlog.md`.
 
 **Pergunta:** Quais itens do Product Backlog estão prontos para ser desenvolvidos?
 
-**Estado do Local OBC:** Committed.
+**Estado do Local OBC:** Readiness.
 
 **Natureza:** View — não é uma fila separada. Itens permanecem no Product Backlog e mudam de estado.
 
@@ -772,9 +901,14 @@ Ver [`flow.md`](flow.md), [`journeys/discovery/README.md`](journeys/discovery/RE
 
 ## Upstream
 
-**Definição:** **Modo de execução** permissivo, experimental e sem compromisso de entrega. Pode usar todas as jornadas com maturidade variável; código é descartável até ser promovido. Não é sinônimo de Discovery. Não é uma fase — é um modo que pode iniciar em **qualquer estágio** do ciclo de vida. Quando concluído, o item retorna ao estágio original.
+**Definição:** **Modo de execução** permissivo, experimental e sem compromisso de entrega. Pode usar todas as 5 jornadas com rigor advisory. Não é sinônimo de Discovery. Não é uma fase — é um modo que pode iniciar em **qualquer estágio** do ciclo de vida.
 
-**Importante:** Upstream não muda o estágio do item. Um item em Discovery que inicia Upstream continua em Discovery; quando o Upstream termina, retorna ao estágio em que estava.
+**Importante:** Upstream não muda o estágio do item. Um item em Discovery que opera em modo Upstream continua em Discovery. O que muda quando o Upstream encerra é o destino da capability, não o estágio:
+
+- CommitmentGate outcome **Promover** ou **Promover com restrição**: a capability avança para Downstream.
+- Demais outcomes (Requer outro experimento, Aguardar, Descartar): a capability permanece no estágio em que estava.
+
+O código produzido no Upstream não é descartável por definição — pode ter qualidade de produção e chegar a ambientes produtivos por decisão do time, sem que isso constitua promoção de capability.
 
 Ver [`prodops/framework/journeys/discovery/README.md`](journeys/discovery/README.md).
 
@@ -785,6 +919,120 @@ Ver [`prodops/framework/journeys/discovery/README.md`](journeys/discovery/README
 **Definição:** **Modo de execução** padrão, com compromisso de entrega que aplica todos os quality gates vigentes em todas as jornadas. Guia o item e para em cada lacuna até atingir readiness; então executa o fluxo completo `Bootstrap → Hack → Sync → Finish → Ship → Validate → Promote`. Não é uma fase — é um modo de execução. Pode iniciar em qualquer estágio do ciclo de vida.
 
 Ver [`prodops/framework/execution-model/downstream.md`](execution-model/downstream.md).
+
+---
+
+## Coexistência de modos
+
+**Definição:** Estado em que o mesmo time opera simultaneamente em modos diferentes para diferentes objetos de trabalho. Exemplo: um experimento em Upstream (EXP-007) rodando em paralelo com um item em Downstream (DS-61). Cada objeto de trabalho mantém seu próprio modo, gates e rigor — a coexistência é esperada e operacionalmente normal.
+
+**Regra:** o modo é uma propriedade do objeto de trabalho, não do time. Um time pode ter items em Upstream, Refining e In Delivery simultaneamente. O que não pode ocorrer é um único objeto de trabalho com ambiguidade de modo.
+
+---
+
+## Discovery no Downstream
+
+**Tipo:** Anti-padrão de modo.
+
+**Definição:** Exploração realizada após uma decisão que carrega compromisso operacional, econômico ou temporal, sem reconhecer que o custo de estar errado mudou. Ocorre quando o time trata trabalho Downstream como se fosse Upstream — adiando decisões, ampliando escopo ou revisando hipóteses já comprometidas sem registrar formalmente a regressão.
+
+**Distinção:** Discovery no Downstream não é o mesmo que a jornada Discovery executada em modo Downstream (que é legítima e tem gates obrigatórios). O anti-padrão é a exploração informal dentro de um compromisso assumido.
+
+**Sinal diagnóstico:** OBC em estado In Delivery com hipóteses abertas que deveriam ter sido resolvidas antes do CommitmentGate.
+
+---
+
+## Incerteza residual aceitável
+
+**Definição:** Incerteza que permanece no momento do CommitmentGate e é explicitamente declarada como aceitável pelo trio. O Upstream não precisa eliminar toda incerteza para que o CommitmentGate ocorra — o que é "aceitável" é julgamento coletivo do trio.
+
+**Regra crítica:** A incerteza residual deve ser declarada no Decision Package. Riscos não declarados no CommitmentGate são riscos gerenciados sem visibilidade — o Gate não pode mais atuar sobre o que não foi registrado.
+
+**Relação com o Readiness Gate:** a incerteza residual declarada no CommitmentGate é parte do contexto que o Readiness Gate verifica antes de autorizar Delivery.
+
+---
+
+## Produção Controlada
+
+**Definição:** Deploy em ambiente de produção real realizado em modo Upstream, sem que o CommitmentGate tenha sido executado. Requer: autorização explícita do trio, rollback imediato disponível e observações registradas no upstream-trail.
+
+**Distinção com Promoção:** a Produção Controlada não transfere a capability para Downstream. O OBC permanece em Draft ou Refining; o compromisso de delivery não foi assumido. O código chega a produção; a capability permanece em exploração.
+
+**Quando usar:** validação de hipóteses que requerem tráfego real e não podem ser reproduzidas em ambiente isolado ou sandbox.
+
+---
+
+## Promoção Prematura
+
+**Tipo:** Anti-padrão de modo.
+
+**Definição:** Comprometer uma Product Capability antes de ter evidência suficiente, seja por pressão de deadline, otimismo não verificado ou omissão de incerteza relevante no Decision Package.
+
+**Por que é problemático:** o CommitmentGate existe precisamente para tornar a Promoção Prematura detectável e tratável. Quando ocorre sem registro formal, o custo de estar errado é absorvido silenciosamente no Downstream — sem rastreabilidade nem protocolo de regressão ativado.
+
+**Sinal diagnóstico:** OBC em In Delivery com Discovery WIP ativo para a mesma capability, ou Evidence Threshold ausente no Decision Package que autorizou o CommitmentGate.
+
+**Contraste com Promoção legítima:** uma Promoção com incerteza residual explicitamente declarada no Decision Package é legítima — a Promoção Prematura é silenciosa.
+
+---
+
+## Relatório de ciclo
+
+**Definição:** Output do Assessment Sync retrospectivo ao final de um ciclo. Síntese do que o ciclo revelou sobre a saúde do processo: anti-padrões detectados, sinais diagnósticos ativados, causas identificadas e recomendações para o próximo ciclo.
+
+**Produzido por:** Assessment Sync (fase Synthesize → Report).
+
+**Conteúdo típico:** padrões de Gate Failure Rate, correlações entre WIP e TTE, anti-padrões recorrentes e propostas de ajuste de processo para o próximo ciclo.
+
+**Não confundir com:** Release Trail (evidência de uma entrega específica) ou Decision Package (evidência de um experimento específico).
+
+---
+
+## Rigor bloqueante
+
+**Definição:** Característica do modo Downstream. Gates devem ser satisfeitos antes de avançar — o trabalho para até que as condições sejam atendidas. Não existe bypass de Gate; existe apenas o Waiver, que é um bypass **explícito e registrado**.
+
+**Contraste:** ver Rigor não bloqueante (modo Upstream).
+
+**Consequência prática:** em Downstream, o AgentCode ou o engenheiro não pode avançar para a próxima fase sem que o Gate da fase anterior esteja satisfeito. O bloqueio é a garantia — não um obstáculo.
+
+---
+
+## Rigor de compromisso
+
+**Definição:** Regime aplicado em modo Downstream. Orientado à verificação de cumprimento, preservação do compromisso assumido, controle de mudança e geração de evidência de resultado. Perguntas características: "O que foi comprometido está sendo entregue?" e "Existe evidência verificável de cada etapa?".
+
+**Contraste:** ver Rigor de exploração (modo Upstream).
+
+---
+
+## Rigor de exploração
+
+**Definição:** Regime aplicado em modo Upstream. Orientado à qualidade da evidência, ao aprendizado e à redução de incerteza relevante. Perguntas características: "A hipótese é falsificável?" e "A evidência produzida é verificável por quem não participou do experimento?".
+
+**Contraste:** ver Rigor de compromisso (modo Downstream).
+
+**Não confundir com ausência de rigor:** o rigor de exploração é tão exigente quanto o de compromisso — a diferença é o que ele exige. Em Upstream, o rigor incide sobre a qualidade epistêmica da evidência; em Downstream, sobre o cumprimento do compromisso assumido.
+
+---
+
+## Rigor não bloqueante
+
+**Definição:** Característica do modo Upstream. Práticas disponíveis e recomendadas, mas não condições mandatórias que bloqueiem o avanço. O engenheiro decide quais Skills utilizar; nenhuma Gates bloqueia o próximo passo.
+
+**Contraste:** ver Rigor bloqueante (modo Downstream).
+
+**Consequência prática:** em Upstream, o Code Agent pode avançar sem cumprir pré-condições formais. A accountability pelo rigor de exploração é individual e do trio — não enforced pelo framework.
+
+---
+
+## Sandbox Deploy
+
+**Definição:** Deploy Upstream em stack efêmera, isolada e sem tráfego de clientes reais. Stack prefixada com `experiment-*`, destruída ao final do experimento (`teardown` obrigatório). Utilizado para validar hipóteses que requerem integração com provedores reais em ambiente controlado.
+
+**Distinção com Produção Controlada:** o Sandbox Deploy nunca expõe tráfego real de clientes. A Produção Controlada usa produção real com rollback disponível.
+
+**Distinção com Downstream:** o Sandbox Deploy não produz artefatos entregáveis, não gera Release Trail e não exige OBC em estado Readiness.
 
 ---
 
@@ -916,7 +1164,7 @@ Ver [`prodops/framework/execution-model/downstream.md`](execution-model/downstre
 
 **Propósito:** Fechar o ciclo de melhoria contínua do Framework. Enquanto a Delivery executa e a Diligence organiza, o Assessment avalia — respondendo à pergunta central: "Estamos melhorando continuamente o nosso modelo operacional?"
 
-**Cycles:** Assessment Sync (Collect → Analyze → Synthesize → Report — estruturado, por demanda) e Assessment Async (Monitor → Alert — contínuo, proativo).
+**Cycles:** Assessment Sync (Collect → Analyze → Synthesize → Report — estruturado, por demanda) e Assessment Async (Monitor → Alert → Evoluir — contínuo, proativo). A fase Evoluir incorpora novos critérios de monitoramento a partir do que ciclos anteriores revelaram como pontos cegos.
 
 **O que não faz:** Não executa Delivery. Não executa Diligence. Não escreve nas Timelines de outras Journeys. Não prioriza o backlog — informa, não decide.
 
@@ -1080,3 +1328,8 @@ Um mesmo Work Item pode afetar múltiplos artefatos.
 **Cardinalidade:** Uma Business Intent pode ter zero ou mais Work Items ao longo de sua vida. A ausência de Work Item não é uma divergência — só é divergência quando há operação ativa sem Work Item rastreável.
 
 **Não confundir com:** A Business Intent em si (artefato permanente). O OBC é um documento Markdown — não tem representação como Issue. Ver [knowledge-vs-execution.md](knowledge-vs-execution.md).
+
+
+---
+
+→ **Próximo:** [Princípios](principles.md)
